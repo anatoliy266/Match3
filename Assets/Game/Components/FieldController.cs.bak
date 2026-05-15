@@ -1,0 +1,370 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+using static UnityEditor.PlayerSettings;
+
+public class FieldController : MonoBehaviour
+{
+    public int rows;
+    public int cols;
+    public TileController Tile;
+    public TileTypeData TileType;
+    public TileDistributor TileDistributor;
+
+    private TileController[,] _tiles;
+    private bool[,] _visited;
+    private bool[,] _tempVisited;
+    private Queue<(Transform, Vector3)> _animQueue;
+    private float _animSpeed = 0.2f;
+    [SerializeField]
+    private int _cycle = 0;
+    private bool _isHintPlaying;
+    private float _hintTimer;
+
+    public float TimeToHint;
+
+    private void Awake()
+    {
+        _tiles = new TileController[rows, cols];
+        _visited = new bool[rows, cols];
+        _tempVisited = new bool[rows, cols];
+    }
+
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    void Start()
+    {
+        var tasks = Fill();
+        if (tasks.Count > 0)
+        {
+            Task.WhenAll(tasks);
+        }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (_isHintPlaying)
+        {
+            _hintTimer = 0f;
+        }
+        _hintTimer += Time.deltaTime;
+        if (_hintTimer >= TimeToHint)
+        {
+            _hintTimer = 0f;
+            _ = Hint();
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            Debug.Log("space pressed");
+            _ = Evaluate();
+        }
+    }
+
+    private async Task<bool> Evaluate()
+    {
+        var groups = FindMatches();
+        if (groups.Count == 0) { _cycle = 0; return false; }
+        _cycle++;
+        await RemoveMatches(groups);
+        await CompactBoard();
+        await FillEmpty();
+        _ = Evaluate();
+        return true;
+    }
+
+
+    public bool CheckPotentialMatch(int row, int col, TileType type)
+    {
+        System.Array.Clear(_tempVisited, 0, _tempVisited.Length);
+
+        var group = Match(row, col, type, _tempVisited, true);
+
+        return group.Count > 2;
+    }
+    
+
+    private List<HashSet<Vector2Int>> FindMatches()
+    {
+        _visited = new bool[rows, cols];
+        var groups = new List<HashSet<Vector2Int>>();
+        for (var row = 0; row < rows; row++)
+        {
+            for (var col = 0; col < cols; col++)
+            {
+                if (_tiles[row, col] != null && !_visited[row, col])
+                {
+                    var group = Match(row, col, _tiles[row, col].Type, _visited);
+                    if (group.Count > 2)
+                    {
+                        groups.Add(group);
+                    }
+                }
+            }
+        }
+        return groups;
+    }
+
+    private async Task RemoveMatches(List<HashSet<Vector2Int>> groups)
+    {
+        var tasks = new List<Task>();
+        foreach (var group in groups)
+        {
+            //todo: Рассчет очков
+            var score = 0;
+
+            foreach (var pos in group)
+            {
+                if (_tiles[pos.x, pos.y] != null)
+                {
+                    score += TileType.GetScore(_tiles[pos.x, pos.y].Type);
+                    var task = AnimationHelper.DoDestroyAsync(_tiles[pos.x, pos.y].transform, _animSpeed);
+                    tasks.Add(task);
+                    _tiles[pos.x, pos.y] = null;
+                }
+            }
+            ScoreManager.Instance.AddScore(score);
+        }
+        if (tasks.Count > 0)
+        {
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    private async Task CompactBoard()
+    {
+        var tasks = new List<Task>();
+        for (var col = 0; col < cols; col++)
+        {
+            var (slow, fast) = (0, 0);
+            while (fast < _tiles.GetLength(0))
+            {
+                if (_tiles[fast, col] != null)
+                {
+                    if (fast > slow)
+                    {
+                        tasks.AddRange(SwapTiles(_tiles[fast, col], new Vector2Int(slow, col), null, new Vector2Int(-1, -1)));
+                    }
+                    slow++;
+                }
+                fast++;
+            }
+        }
+        if (tasks.Count > 0)
+        {
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    public List<Task> SwapTiles(TileController tile1, Vector2Int pos1, TileController tile2, Vector2Int pos2)
+    {
+        var moves = new List<Task>();
+
+        _tiles[tile1.GridPosition.x, tile1.GridPosition.y] = null;
+        if (tile2 != null) _tiles[tile2.GridPosition.x, tile2.GridPosition.y] = null;
+
+        _tiles[pos1.x, pos1.y] = tile1;
+        tile1.GridPosition = pos1;
+        moves.Add(AnimationHelper.DoMoveExactTimeAsync(tile1.transform, GetWorldPos(pos1.x, pos1.y), _animSpeed));
+
+        if (tile2 != null)
+        {
+            _tiles[pos2.x, pos2.y] = tile2;
+            tile2.GridPosition = pos2;
+            moves.Add(AnimationHelper.DoMoveExactTimeAsync(tile2.transform, GetWorldPos(pos2.x, pos2.y), _animSpeed));
+        }
+
+        return moves;
+    }
+
+    private async Task FillEmpty()
+    {
+        var tasks = new List<Task>();
+        for (var row = 0; row < rows; row++)
+        {
+            for (var col = 0; col < cols; col++)
+            {
+                if (_tiles[row, col] == null)
+                {
+                    var (tile, task) = SpawnTile(row, col, 1);
+                    _tiles[row, col] = tile;
+                    tasks.Add(task);
+                }
+            }
+        }
+        if (tasks.Count > 0)
+        {
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    private Vector3 GetWorldPos(int row, int col)
+    {
+        return new Vector3(col - cols / 2, row - rows / 2, 0);
+    }
+
+
+    public async Task TryPlayerMove(TileController t1, Vector2Int p1, TileController t2, Vector2Int p2)
+    {
+        _hintTimer = 0f;
+        var startP1 = t1.GridPosition;
+        var startP2 = t2.GridPosition;
+
+        //todo: проверка на то что свапаются только соседи
+        if (Math.Abs(startP1.x - startP2.x) > 1 || Math.Abs(startP1.y - startP2.y) > 1)
+        {
+            SwapTiles(t1, startP1, t2, startP2);
+            return;
+        }
+
+        SwapTiles(t1, p1, t2, p2);
+        var isNewChanges = await Evaluate();
+        if (!isNewChanges)
+        {
+            SwapTiles(t1, startP1, t2, startP2);
+        }
+    }
+
+    private (TileController tile, Task moveTask) SpawnTile(int i, int j, int spawnOffset)
+    {
+        Vector3 topCellPos = GetWorldPos(rows - 1, j);
+        Vector3 spawnPosition = new Vector3(topCellPos.x, topCellPos.y + spawnOffset, 0);
+
+        var tile = ObjectPool.SharedInstance.GetObject();
+
+
+        tile.SetType(TileDistributor.GetRandomWeightedTileType(t => CheckPotentialMatch(i, j, t), _cycle));
+
+
+        tile.IsMoving = true;
+        tile.GridPosition = new Vector2Int(i, j);
+        tile.transform.SetParent(this.transform);
+        tile.transform.position = spawnPosition;
+
+        Vector3 targetWorldPosition = GetWorldPos(i, j);
+
+        var task = AnimationHelper.DoMoveExactTimeAsync(tile.transform, targetWorldPosition, _animSpeed);
+        return (tile, task);
+    }
+
+    private HashSet<Vector2Int> Match(int startRow, int startCol, TileType type, bool[,] visited, bool isVirtual = false)
+    {
+        var group = new HashSet<Vector2Int>();
+        var queue = new Queue<Vector2Int>();
+
+        if (!isVirtual)
+        {
+            var tile = _tiles[startRow, startCol];
+            if (tile == null || tile.Type != type)
+                return group;
+        }
+
+        visited[startRow, startCol] = true;
+        queue.Enqueue(new Vector2Int(startRow, startCol));
+
+        while (queue.Count > 0)
+        {
+            var pos = queue.Dequeue();
+            group.Add(pos);
+
+            // Соседи: вверх, вниз, влево, вправо
+            TryEnqueue(pos.x - 1, pos.y, type, visited, queue);
+            TryEnqueue(pos.x + 1, pos.y, type, visited, queue);
+            TryEnqueue(pos.x, pos.y - 1, type, visited, queue);
+            TryEnqueue(pos.x, pos.y + 1, type, visited, queue);
+        }
+
+        return group.Count > 2 ? group : new HashSet<Vector2Int>();
+    }
+
+    private void TryEnqueue(int row, int col, TileType type, bool[,] visited, Queue<Vector2Int> queue)
+    {
+        if (row < 0 || row >= _tiles.GetLength(0) || col < 0 || col >= _tiles.GetLength(1))
+            return;
+        if (visited[row, col])
+            return;
+        var tile = _tiles[row, col];
+        if (tile == null || tile.Type != type)
+            return;
+
+        visited[row, col] = true;
+        queue.Enqueue(new Vector2Int(row, col));
+    }
+
+    private List<Task> Fill()
+    {
+        var tasks = new List<Task>();
+        for (var i = 0; i < _tiles.GetLength(0); i++)
+        {
+            for (var j = 0; j < _tiles.GetLength(1); j++)
+            {
+                var (tile, task) = SpawnTile(i, j, 1);
+                _tiles[i, j] = tile;
+                tasks.Add(task);
+            }
+        }
+        return tasks;
+    }
+
+    public async Task Hint()
+    {
+        if (_isHintPlaying) return;
+        for (var i = 0; i < _tiles.GetLength(0); i++)
+        {
+            for (var j = 0; j < _tiles.GetLength(1); j++)
+            {
+                TileController current = _tiles[i, j];
+                if (current is null) continue;
+
+                // 1. Проверка ВВЕРХ (i - 1)
+                if (i > 0 && _tiles[i - 1, j] is not null && CheckPotentialMatch(i - 1, j, current.Type))
+                {
+
+                    await AnimateHintAsync(current, _tiles[i - 1, j]);
+
+                    return;
+                }
+
+                // 2. Проверка ВНИЗ (i + 1)
+                if (i < rows - 1 && _tiles[i + 1, j] is not null && CheckPotentialMatch(i + 1, j, current.Type))
+                {
+                    await AnimateHintAsync(current, _tiles[i + 1, j]);
+                    return;
+                }
+
+                // 3. Проверка ВЛЕВО (j - 1)
+                if (j > 0 && _tiles[i, j - 1] is not null && CheckPotentialMatch(i, j - 1, current.Type))
+                {
+                    await AnimateHintAsync(current, _tiles[i, j - 1]);
+                    return;
+                }
+
+                // 4. Проверка ВПРАВО (j + 1)
+                if (j < cols - 1 && _tiles[i, j + 1] is not null && CheckPotentialMatch(i, j + 1, current.Type))
+                {
+                    await AnimateHintAsync(current, _tiles[i, j + 1]);
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task AnimateHintAsync(TileController tile1, TileController tile2)
+    {
+        _isHintPlaying = true;
+        Vector2Int pos1 = tile1.GridPosition;
+        Vector2Int pos2 = tile2.GridPosition;
+
+        var forwardMoves = SwapTiles(tile1, pos2, tile2, pos1);
+        await Task.WhenAll(forwardMoves);
+
+        await Task.Delay(300);
+
+        var backwardMoves = SwapTiles(tile1, pos1, tile2, pos2);
+        await Task.WhenAll(backwardMoves);
+        _isHintPlaying = false;
+    }
+
+}
+

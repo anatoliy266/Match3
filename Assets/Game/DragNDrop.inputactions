@@ -1,0 +1,55 @@
+{
+    "version": 1,
+    "name": "DragNDrop",
+    "maps": [
+        {
+            "name": "DragNDrop",
+            "id": "b2d399c3-3b8e-4a9a-b6ca-20fcce9d4c9c",
+            "actions": [
+                {
+                    "name": "Tracking",
+                    "type": "Value",
+                    "id": "3934f2ad-8b73-4699-ba4f-0d628f2e414b",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Clicking",
+                    "type": "Button",
+                    "id": "ceda79a2-b8d8-4bb7-94fb-4928b9b054a2",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "8671d961-171e-4fb8-b25f-a69ecbdbbbb5",
+                    "path": "<Pointer>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Tracking",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b60cda54-9422-40c2-8e8a-f32694e5e304",
+                    "path": "<Pointer>/press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Clicking",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}
