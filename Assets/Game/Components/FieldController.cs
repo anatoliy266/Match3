@@ -56,17 +56,12 @@ public class FieldController : MonoBehaviour
             _hintTimer = 0f;
             _ = Hint();
         }
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            Debug.Log("space pressed");
-            _ = Evaluate();
-        }
     }
 
-    private async Task<bool> Evaluate()
+    private async Task<bool> Evaluate(Func<List<HashSet<Vector2Int>>> getGroup)
     {
-        var groups = MatchEvaluator.Instance.FindAll(ToSnapshot());
+        var groups = getGroup();
+        //var groups = MatchEvaluator.Instance.FindAll(ToSnapshot());
         Debug.Log($"group found: {groups.Count}");
         if (groups.Count == 0) { _cycle = 0; return false; }
         _cycle++;
@@ -74,9 +69,19 @@ public class FieldController : MonoBehaviour
         await RemoveMatches(groups);
         await CompactBoard();
         await FillEmpty();
-        _ = Evaluate();
+        await Evaluate(() => MatchEvaluator.Instance.FindAll(ToSnapshot()));
         return true;
     }
+
+    //private async Task ActivateBonus(Vector2Int pos)
+    //{
+    //    var board = ToSnapshot();
+    //    var group = MatchEvaluator.Instance.GroupAt(board, pos);
+    //    await RemoveMatches(new List<HashSet<Vector2Int>> { group });
+    //    await CompactBoard();
+    //    await FillEmpty();
+    //    _ = Evaluate();
+    //}
 
     private TileController.Snapshot?[,] ToSnapshot()
     {
@@ -242,19 +247,46 @@ public class FieldController : MonoBehaviour
         var startP1 = t1.GridPosition;
         var startP2 = t2.GridPosition;
         SwapTiles(t1, p1, t2, p2);
+
         try
         {
-            var isNewChanges = await Evaluate();
+            bool isBonusMove = t1.IsBonus || t2.IsBonus; 
+            bool isNewChanges = false;
+
+            if (isBonusMove)
+            {
+                Vector2Int bonusPos = t1.IsBonus ? p1 : p2;
+                isNewChanges = await Evaluate(() =>
+                {
+                    var board = ToSnapshot();
+                    var groups = MatchEvaluator.Instance.FindAllBonuses(board, bonusPos);
+                    return groups;
+                });
+            }
+            else
+            {
+                isNewChanges = await Evaluate(() =>
+                    MatchEvaluator.Instance.FindAll(ToSnapshot())
+                );
+            }
+
             if (!isNewChanges)
             {
                 SwapTiles(t1, startP1, t2, startP2);
             }
+            //если одна из фишек бонус - ActivateBonus
+            //...
+
+            // если фишка не бонус
+            //var isNewChanges = await Evaluate();
+            //if (!isNewChanges)
+            //{
+            //    SwapTiles(t1, startP1, t2, startP2);
+            //}
         }
         catch (Exception ex) { 
             Debug.LogException(ex);
         }
-         
-        
     }
 
     private TileController SpawnTileAt(int i, int j, Vector3 worldPosition, TileType type, bool isBonus)

@@ -34,8 +34,9 @@ public class MatchEvaluator : MonoBehaviour
                 if (board[r, c] is not null && board[r, c].Value.IsBonus) continue;
 
 
-                var rule = MatchRules.GetRule(board[r, c].Value.Type);
-                var group = BFS(board, board[r, c].Value.GridPosition, rule.IsMatch);
+                //var rule = MatchRules.GetRule(board[r, c].Value.Type);
+                //var group = BFS(board, board[r, c].Value.GridPosition, rule.IsMatch);
+                var group = GroupAt(board, board[r, c].Value.GridPosition);
 
                 foreach (var pos in group)
                 {
@@ -50,6 +51,112 @@ public class MatchEvaluator : MonoBehaviour
             }
         }
         return groups;
+    }
+
+    //public List<HashSet<Vector2Int>> FindAllBonuses(TileController.Snapshot?[,] board, Vector2Int startPos)
+    //{
+    //    var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+    //    var groups = new List<HashSet<Vector2Int>>();
+
+    //    var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+    //    Array.Clear(visited, 0, rows * cols);
+
+    //    var bonusQueue = new Queue<Vector2Int>();
+    //    bonusQueue.Enqueue(startPos);
+
+    //    while (bonusQueue.Count > 0)
+    //    {
+    //        var currentBonusPos = bonusQueue.Dequeue();
+
+    //        int bonusIndex = currentBonusPos.x * cols + currentBonusPos.y;
+    //        if (visited[bonusIndex]) continue;
+
+    //        visited[bonusIndex] = true;
+    //        var rawGroup = GroupAt(board, currentBonusPos);
+    //        var uniqueBonusGroup = new HashSet<Vector2Int>();
+
+    //        foreach (var pos in rawGroup)
+    //        {
+    //            int index = pos.x * cols + pos.y;
+    //            if (visited[index]) continue;
+    //            visited[index] = true;
+    //            uniqueBonusGroup.Add(pos);
+    //            if (board[pos.x, pos.y] is not null
+    //                && board[pos.x, pos.y].Value.IsBonus)
+    //            {
+    //                bonusQueue.Enqueue(pos);
+    //            }
+    //        }
+    //        if (uniqueBonusGroup.Count > 0)
+    //        {
+    //            groups.Add(uniqueBonusGroup);
+    //        }
+    //    }
+
+    //    ArrayPool<bool>.Shared.Return(visited);
+    //    return groups;
+    //}
+
+    public List<HashSet<Vector2Int>> FindAllBonuses(TileController.Snapshot?[,] board, Vector2Int startPos)
+    {
+        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+        var groups = new List<HashSet<Vector2Int>>();
+
+        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+        Array.Clear(visited, 0, rows * cols);
+
+        var bonusQueue = new Queue<Vector2Int>();
+        bonusQueue.Enqueue(startPos);
+
+        var enqueuedBonuses = new HashSet<Vector2Int> { startPos };
+
+        while (bonusQueue.Count > 0)
+        {
+            var currentBonusPos = bonusQueue.Dequeue();
+            int bonusIndex = currentBonusPos.x * cols + currentBonusPos.y;
+
+            if (visited[bonusIndex]) continue;
+
+            var rawGroup = GroupAt(board, currentBonusPos);
+            var uniqueBonusGroup = new HashSet<Vector2Int>();
+
+            foreach (var pos in rawGroup)
+            {
+                if (board[pos.x, pos.y] is not null && board[pos.x, pos.y].Value.IsBonus)
+                {
+                    if (!enqueuedBonuses.Contains(pos) && !visited[pos.x * cols + pos.y])
+                    {
+                        enqueuedBonuses.Add(pos);
+                        bonusQueue.Enqueue(pos); 
+                    }
+                    uniqueBonusGroup.Add(pos);
+                    continue;
+                }
+                int index = pos.x * cols + pos.y;
+                if (visited[index]) continue;
+
+                visited[index] = true;
+                uniqueBonusGroup.Add(pos);
+            }
+
+            visited[bonusIndex] = true;
+
+            if (uniqueBonusGroup.Count > 0)
+            {
+                groups.Add(uniqueBonusGroup);
+            }
+        }
+
+        ArrayPool<bool>.Shared.Return(visited);
+        return groups;
+    }
+
+
+    public HashSet<Vector2Int> GroupAt(TileController.Snapshot?[,] board, Vector2Int start)
+    {
+        var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
+        var group = BFS(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
+        return group;
     }
 
     public int GroupSizeAt(TileController.Snapshot?[,] board, Vector2Int start)
