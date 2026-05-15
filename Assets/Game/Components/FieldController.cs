@@ -22,13 +22,15 @@ public class FieldController : MonoBehaviour
 
     private TileController[,] _tiles;
     private Queue<(Transform, Vector3)> _animQueue;
-    private float _animSpeed = 0.2f;
+    [SerializeField]
+    private float _animSpeed = 0.5f;
     [SerializeField]
     private int _cycle = 0;
     private bool _isHintPlaying;
     private float _hintTimer;
 
     public float TimeToHint;
+    private bool _isBusy = false;
 
     private void Awake()
     {
@@ -60,9 +62,8 @@ public class FieldController : MonoBehaviour
 
     private async Task<bool> Evaluate(Func<List<HashSet<Vector2Int>>> getGroup)
     {
+        DragManager.Instance.SetBusy(true);
         var groups = getGroup();
-        //var groups = MatchEvaluator.Instance.FindAll(ToSnapshot());
-        Debug.Log($"group found: {groups.Count}");
         if (groups.Count == 0) { _cycle = 0; return false; }
         _cycle++;
 
@@ -70,18 +71,9 @@ public class FieldController : MonoBehaviour
         await CompactBoard();
         await FillEmpty();
         await Evaluate(() => MatchEvaluator.Instance.FindAll(ToSnapshot()));
+        DragManager.Instance.SetBusy(false);
         return true;
     }
-
-    //private async Task ActivateBonus(Vector2Int pos)
-    //{
-    //    var board = ToSnapshot();
-    //    var group = MatchEvaluator.Instance.GroupAt(board, pos);
-    //    await RemoveMatches(new List<HashSet<Vector2Int>> { group });
-    //    await CompactBoard();
-    //    await FillEmpty();
-    //    _ = Evaluate();
-    //}
 
     private TileController.Snapshot?[,] ToSnapshot()
     {
@@ -95,14 +87,17 @@ public class FieldController : MonoBehaviour
     private async Task RemoveMatches(List<HashSet<Vector2Int>> groups)
     {
         var tasks = new List<Task>();
-        var bonusSpawnPoints = ArrayPool<Bonus>.Shared.Rent(groups.Count);
+
+        //var bonusSpawnPoints = ArrayPool<Bonus>.Shared.Rent(groups.Count);
+        //Array.Clear(bonusSpawnPoints, 0, bonusSpawnPoints.Length);
+
         for (var i = 0; i < groups.Count; i++)
         {
-            var center = FindCenterPoint(groups[i]);
-            bonusSpawnPoints[i].Position = center;
+            //var center = FindCenterPoint(groups[i]);
+            //bonusSpawnPoints[i].Position = center;
 
-            var bonusType = TileDistributor.GetBonusTileType(groups[i]);
-            bonusSpawnPoints[i].Type = bonusType;
+            //var bonusType = TileDistributor.GetBonusTileType(groups[i]);
+            //bonusSpawnPoints[i].Type = bonusType;
 
             var score = 0;
             foreach (var pos in groups[i])
@@ -118,20 +113,20 @@ public class FieldController : MonoBehaviour
             ScoreManager.Instance.AddScore(score);
         }
         
-        for (var i = 0;i < groups.Count; i++)
-        {
+        //for (var i = 0;i < groups.Count; i++)
+        //{
             
-            var bonus = bonusSpawnPoints[i];
-            if (bonus.Type == global::TileType.Neutral) continue;
-            var (tile, task) = SpawnBonusTile(bonus);
-            _tiles[bonus.Position.x, bonus.Position.y] = tile;
-            tasks.Add(task);
-        }
+        //    var bonus = bonusSpawnPoints[i];
+        //    if (bonus.Type == global::TileType.Neutral) continue;
+        //    var (tile, task) = SpawnBonusTile(bonus);
+        //    _tiles[bonus.Position.x, bonus.Position.y] = tile;
+        //    tasks.Add(task);
+        //}
         if (tasks.Count > 0)
         {
             await Task.WhenAll(tasks);
         }
-        ArrayPool<Bonus>.Shared.Return(bonusSpawnPoints);
+        //ArrayPool<Bonus>.Shared.Return(bonusSpawnPoints);
         Debug.Log("remove tiles worked fine");
     }
 
@@ -243,49 +238,35 @@ public class FieldController : MonoBehaviour
     public async Task TryPlayerMove(TileController t1, Vector2Int p1, TileController t2, Vector2Int p2)
     {
         Debug.Log("TryPlayerMove");
+        
         _hintTimer = 0f;
         var startP1 = t1.GridPosition;
         var startP2 = t2.GridPosition;
         SwapTiles(t1, p1, t2, p2);
 
-        try
+        bool isBonusMove = t1.IsBonus || t2.IsBonus;
+        bool isNewChanges = false;
+
+        if (isBonusMove)
         {
-            bool isBonusMove = t1.IsBonus || t2.IsBonus; 
-            bool isNewChanges = false;
-
-            if (isBonusMove)
+            Vector2Int bonusPos = t1.IsBonus ? p1 : p2;
+            isNewChanges = await Evaluate(() =>
             {
-                Vector2Int bonusPos = t1.IsBonus ? p1 : p2;
-                isNewChanges = await Evaluate(() =>
-                {
-                    var board = ToSnapshot();
-                    var groups = MatchEvaluator.Instance.FindAllBonuses(board, bonusPos);
-                    return groups;
-                });
-            }
-            else
-            {
-                isNewChanges = await Evaluate(() =>
-                    MatchEvaluator.Instance.FindAll(ToSnapshot())
-                );
-            }
-
-            if (!isNewChanges)
-            {
-                SwapTiles(t1, startP1, t2, startP2);
-            }
-            //если одна из фишек бонус - ActivateBonus
-            //...
-
-            // если фишка не бонус
-            //var isNewChanges = await Evaluate();
-            //if (!isNewChanges)
-            //{
-            //    SwapTiles(t1, startP1, t2, startP2);
-            //}
+                var board = ToSnapshot();
+                var groups = MatchEvaluator.Instance.FindAllBonuses(board, bonusPos);
+                return groups;
+            });
         }
-        catch (Exception ex) { 
-            Debug.LogException(ex);
+        else
+        {
+            isNewChanges = await Evaluate(() =>
+                MatchEvaluator.Instance.FindAll(ToSnapshot())
+            );
+        }
+
+        if (!isNewChanges)
+        {
+            SwapTiles(t1, startP1, t2, startP2);
         }
     }
 
@@ -324,33 +305,7 @@ public class FieldController : MonoBehaviour
         return (tile, task);
     }
 
-    private (TileController tile, Task moveTask) SpawnTile(int i, int j, int spawnOffset, TileController.Snapshot?[,] snapshot)
-    {
-        var topCellPos = GetWorldPos(rows - 1, j);
-        var spawnPosition = new Vector3(topCellPos.x, topCellPos.y + spawnOffset, 0);
-
-        var tile = ObjectPool.SharedInstance.GetObject();
-        try
-        {
-            var type = TileDistributor.GetRandomWeightedTileType(snapshot, i, j, _cycle);
-            tile.SetType(type);
-
-        }
-        catch (Exception e)
-        {
-            Debug.LogException(e);
-        }
-
-        tile.IsMoving = true;
-        tile.GridPosition = new Vector2Int(i, j);
-        tile.transform.SetParent(this.transform);
-        tile.transform.position = spawnPosition;
-
-        var targetWorldPosition = GetWorldPos(i, j);
-        var task = AnimationHelper.DoMoveExactTimeAsync(tile.transform, targetWorldPosition, _animSpeed);
-        return (tile, task);
-    }
-
+    
     private List<Task> Fill()
     {
         var snapshot = new TileController.Snapshot?[rows, cols];

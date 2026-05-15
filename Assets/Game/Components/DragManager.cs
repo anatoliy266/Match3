@@ -1,3 +1,4 @@
+using System;
 using Unity.InferenceEngine;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -8,6 +9,8 @@ public class DragManager : MonoBehaviour
     public InputActionReference TrackingAction;
     public InputActionReference ClickingAction;
 
+    public static DragManager Instance;
+
     public Camera Camera;
 
     private Vector3 _startPosition;
@@ -17,7 +20,11 @@ public class DragManager : MonoBehaviour
     private Transform _selectedObject;
     private Vector3 _offset;
     private Plane _dragPlane;
-
+    private bool _isBusy = false;
+    private void Awake()
+    {
+        Instance = this;
+    }
     private void OnEnable()
     {
         TrackingAction.action.Enable();
@@ -41,7 +48,7 @@ public class DragManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     private void OnTouchPress(InputAction.CallbackContext context)
     {
-        Debug.Log("touchpress");
+        if (_isBusy) return;
         _currentPos = Pointer.current.position.ReadValue();
         var ray = Camera.ScreenPointToRay(_currentPos);
         var hit = Physics2D.GetRayIntersection(ray);
@@ -61,7 +68,6 @@ public class DragManager : MonoBehaviour
 
     private void OnTouchRelease(InputAction.CallbackContext context)
     {
-        Debug.Log("touchrelease");
         Debug.Log(_selectedObject is null);
         if (_selectedObject is not null)
         {
@@ -72,7 +78,6 @@ public class DragManager : MonoBehaviour
             var hit = Physics2D.GetRayIntersection(ray);
             if (hit.collider != null && hit.transform != _selectedObject)
             {
-                Debug.Log("found tile");
                 var draggedTile = _selectedObject.GetComponent<TileController>();
                 var hitTile = hit.transform.GetComponent<TileController>();
                 var field = GetComponentInParent<FieldController>();
@@ -115,5 +120,10 @@ public class DragManager : MonoBehaviour
                 );
             }
         }
+    }
+
+    internal void SetBusy(bool v)
+    {
+        _isBusy = v;
     }
 }

@@ -33,9 +33,6 @@ public class MatchEvaluator : MonoBehaviour
                 if (board[r, c] is null || visited[r * cols + c]) continue;
                 if (board[r, c] is not null && board[r, c].Value.IsBonus) continue;
 
-
-                //var rule = MatchRules.GetRule(board[r, c].Value.Type);
-                //var group = BFS(board, board[r, c].Value.GridPosition, rule.IsMatch);
                 var group = GroupAt(board, board[r, c].Value.GridPosition);
 
                 foreach (var pos in group)
@@ -50,103 +47,40 @@ public class MatchEvaluator : MonoBehaviour
 
             }
         }
+        ArrayPool<bool>.Shared.Return(visited);
         return groups;
     }
-
-    //public List<HashSet<Vector2Int>> FindAllBonuses(TileController.Snapshot?[,] board, Vector2Int startPos)
-    //{
-    //    var (rows, cols) = (board.GetLength(0), board.GetLength(1));
-    //    var groups = new List<HashSet<Vector2Int>>();
-
-    //    var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-    //    Array.Clear(visited, 0, rows * cols);
-
-    //    var bonusQueue = new Queue<Vector2Int>();
-    //    bonusQueue.Enqueue(startPos);
-
-    //    while (bonusQueue.Count > 0)
-    //    {
-    //        var currentBonusPos = bonusQueue.Dequeue();
-
-    //        int bonusIndex = currentBonusPos.x * cols + currentBonusPos.y;
-    //        if (visited[bonusIndex]) continue;
-
-    //        visited[bonusIndex] = true;
-    //        var rawGroup = GroupAt(board, currentBonusPos);
-    //        var uniqueBonusGroup = new HashSet<Vector2Int>();
-
-    //        foreach (var pos in rawGroup)
-    //        {
-    //            int index = pos.x * cols + pos.y;
-    //            if (visited[index]) continue;
-    //            visited[index] = true;
-    //            uniqueBonusGroup.Add(pos);
-    //            if (board[pos.x, pos.y] is not null
-    //                && board[pos.x, pos.y].Value.IsBonus)
-    //            {
-    //                bonusQueue.Enqueue(pos);
-    //            }
-    //        }
-    //        if (uniqueBonusGroup.Count > 0)
-    //        {
-    //            groups.Add(uniqueBonusGroup);
-    //        }
-    //    }
-
-    //    ArrayPool<bool>.Shared.Return(visited);
-    //    return groups;
-    //}
 
     public List<HashSet<Vector2Int>> FindAllBonuses(TileController.Snapshot?[,] board, Vector2Int startPos)
     {
         var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+        //ищем по бонусу и его правилу все совпадения, если в совпадениях бонуса был найден другой бонус - ищем его тоже но
+        //добавляем только ячейки которые не были до этого задеты другим бонусом
+
         var groups = new List<HashSet<Vector2Int>>();
-
         var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-        Array.Clear(visited, 0, rows * cols);
+        Array.Clear(visited, 0, visited.Length);
 
-        var bonusQueue = new Queue<Vector2Int>();
-        bonusQueue.Enqueue(startPos);
+        var queue = new Queue<Vector2Int>();
+        queue.Enqueue(startPos);
 
-        var enqueuedBonuses = new HashSet<Vector2Int> { startPos };
-
-        while (bonusQueue.Count > 0)
+        while (queue.Count > 0)
         {
-            var currentBonusPos = bonusQueue.Dequeue();
-            int bonusIndex = currentBonusPos.x * cols + currentBonusPos.y;
-
-            if (visited[bonusIndex]) continue;
-
-            var rawGroup = GroupAt(board, currentBonusPos);
-            var uniqueBonusGroup = new HashSet<Vector2Int>();
-
-            foreach (var pos in rawGroup)
+            var currPos = queue.Dequeue();
+            var group = GroupAt(board, currPos);
+            var cleanGroup = new HashSet<Vector2Int>();
+            foreach (var pos in group)
             {
-                if (board[pos.x, pos.y] is not null && board[pos.x, pos.y].Value.IsBonus)
+                if (!visited[pos.x * cols + pos.y])
                 {
-                    if (!enqueuedBonuses.Contains(pos) && !visited[pos.x * cols + pos.y])
-                    {
-                        enqueuedBonuses.Add(pos);
-                        bonusQueue.Enqueue(pos); 
-                    }
-                    uniqueBonusGroup.Add(pos);
-                    continue;
+                    if (board[pos.x, pos.y].Value.IsBonus) queue.Enqueue(pos);
+                    cleanGroup.Add(pos);
+                    visited[pos.x * cols + pos.y] = true;
                 }
-                int index = pos.x * cols + pos.y;
-                if (visited[index]) continue;
-
-                visited[index] = true;
-                uniqueBonusGroup.Add(pos);
+                
             }
-
-            visited[bonusIndex] = true;
-
-            if (uniqueBonusGroup.Count > 0)
-            {
-                groups.Add(uniqueBonusGroup);
-            }
+            groups.Add(cleanGroup);
         }
-
         ArrayPool<bool>.Shared.Return(visited);
         return groups;
     }
@@ -210,11 +144,9 @@ public class MatchEvaluator : MonoBehaviour
 
                     if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
                     {
-                        Debug.Log("rume match");
                         visited[i * cols + j] = true;
                         _queue.Enqueue(board[i, j].Value.GridPosition);
                     }
-                    Debug.Log("rume not match");
                 }
             }
         }
