@@ -673,6 +673,7 @@ GameObject:
   - component: {fileID: 1804786600}
   - component: {fileID: 1804786601}
   - component: {fileID: 1804786602}
+  - component: {fileID: 1804786603}
   m_Layer: 0
   m_Name: Field
   m_TagString: Untagged
@@ -695,8 +696,10 @@ MonoBehaviour:
   rows: 10
   cols: 10
   Tile: {fileID: 2244516526134990209, guid: de3ef4f075e958d48be2b87a2402839f, type: 3}
-  TileType: {fileID: 11400000, guid: 3270b72b4181f074fa77195bda449bb0, type: 2}
+  TileTypeData: {fileID: 11400000, guid: 3270b72b4181f074fa77195bda449bb0, type: 2}
   TileDistributor: {fileID: 11400000, guid: 9c95d145bd0306646ace2a0e38a824b9, type: 2}
+  SpawnRules: {fileID: 11400000, guid: 5ea962db087fe93438785012cb47227c, type: 2}
+  _animSpeed: 0.5
   _cycle: 0
   TimeToHint: 10
 --- !u!4 &1804786598
@@ -708,7 +711,7 @@ Transform:
   m_GameObject: {fileID: 1804786596}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 25, y: 25, z: 0}
+  m_LocalPosition: {x: 103, y: 98, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -770,6 +773,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MatchEvaluator
   MatchRules: {fileID: 11400000, guid: 40a2388486a6756409eedc8363a906ba, type: 2}
+--- !u!114 &1804786603
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804786596}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e741851cba3ad425c91ecf922cc6b379, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.VisualScripting.Core::Unity.VisualScripting.Variables
+  _data:
+    _json: '{"declarations":{"Kind":"Object","collection":{"$content":[],"$version":"A"},"$version":"A"}}'
+    _objectReferences: []
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

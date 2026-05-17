@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 145ffc38e539eca4ab9f99d608e64d9f, type: 3}
+  m_Name: SpawnRules
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnRules
+  mappings:
+  - tileType: 7
+    rules:
+    - {fileID: 11400000, guid: 181331d9b910e9d4d8e1030a3dbdd7bb, type: 2}
+  - tileType: 8
+    rules:
+    - {fileID: 11400000, guid: 58e3036daacb9554db8d5d6c6e429e29, type: 2}
+  - tileType: 9
+    rules:
+    - {fileID: 11400000, guid: 61e80db7f81079d4faa49bf961587230, type: 2}
+  - tileType: 0
+    rules:
+    - {fileID: 11400000, guid: 181331d9b910e9d4d8e1030a3dbdd7bb, type: 2}
+    - {fileID: 11400000, guid: 61e80db7f81079d4faa49bf961587230, type: 2}
+    - {fileID: 11400000, guid: 58e3036daacb9554db8d5d6c6e429e29, type: 2}

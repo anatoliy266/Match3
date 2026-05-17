@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b56309cea1b34549be5a29bcb33a361, type: 3}
+  m_Name: MatchRules
+  m_EditorClassIdentifier: Assembly-CSharp::MatchRules
+  mappings:
+  - tileType: 1
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}
+  - tileType: 2
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}
+  - tileType: 3
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}
+  - tileType: 4
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}
+  - tileType: 5
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}
+  - tileType: 6
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}
+  - tileType: 7
+    rules:
+    - {fileID: 11400000, guid: 4526179e341f5cb4fa114c8495823b02, type: 2}
+  - tileType: 8
+    rules:
+    - {fileID: 11400000, guid: e5d72318c8c5f904b85c1c7e974b8a33, type: 2}
+  - tileType: 9
+    rules:
+    - {fileID: 11400000, guid: f909a0eb18350c449b04a4108f537260, type: 2}

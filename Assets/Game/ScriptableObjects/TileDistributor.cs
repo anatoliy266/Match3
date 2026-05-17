@@ -27,7 +27,7 @@ public class TileDistributor : ScriptableObject
         for (int i = 0; i < chances.Length; i++)
         {
             var w = chances[i].currentChance;
-            if (MatchEvaluator.Instance.GroupSizeAt(snapshot, new Vector2Int(r,c)) > 2)
+            if (MatchEvaluator.GroupSizeAt(snapshot, new Vector2Int(r,c)) > 2)
             {
                 w /= penalty;
             }
@@ -78,6 +78,7 @@ public class TileDistributor : ScriptableObject
         }
         return TileType.VerticalBomb;
     }
+
 
     public void RecalculateChances(TileType spawnedType)
     {

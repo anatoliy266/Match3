@@ -17,12 +17,14 @@ public class TileController : MonoBehaviour
     {
         public TileType Type { get; }
         public Vector2Int GridPosition { get; }
+        public Transform Transform { get; }
         public bool IsBonus { get; }
         public Snapshot(TileController tile)
         {
             Type = tile.Type;
             GridPosition = tile.GridPosition;
-            IsBonus = tile.IsBonus;
+            IsBonus = tile.IsBonus; 
+            Transform = tile.transform;
         }
         public static implicit operator Snapshot?(TileController tile) =>
             tile != null ? new Snapshot(tile) : null;

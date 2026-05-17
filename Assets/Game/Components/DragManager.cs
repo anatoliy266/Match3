@@ -21,6 +21,9 @@ public class DragManager : MonoBehaviour
     private Vector3 _offset;
     private Plane _dragPlane;
     private bool _isBusy = false;
+
+    public event Action<TransitionContext> OnDragCompleted;
+
     private void Awake()
     {
         Instance = this;
@@ -81,7 +84,8 @@ public class DragManager : MonoBehaviour
                 var draggedTile = _selectedObject.GetComponent<TileController>();
                 var hitTile = hit.transform.GetComponent<TileController>();
                 var field = GetComponentInParent<FieldController>();
-                _ = field.TryPlayerMove(hitTile, _startGridPos, draggedTile, hitTile.GridPosition);
+                OnDragCompleted?.Invoke(new TransitionContext { });
+                //_ = field.TryPlayerMove(hitTile, _startGridPos, draggedTile, hitTile.GridPosition);
             } else
             {
                 _selectedObject.position = _startPosition;

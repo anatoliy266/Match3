@@ -1,0 +1,10 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Game/Editor/TileGeometryEditor.uss?fileID=7433441132597879392&amp;guid=609066fb47a89bf4cb9a9c9814549d92&amp;type=3#TileGeometryEditor"/>
+    <ui:VisualElement name="main-container" style="flex-direction: column; padding: 10px;">
+        <uie:ObjectField name="bonusShapeField" label="Bonus Shape" type="TileSpawnRuleBase, Assembly-CSharp"/>
+        <uie:Vector2IntField name="gridSizeField" label="Grid Size" style="justify-content: space-evenly; width: 467px; align-items: center;"/>
+        <ui:Button name="clearButton" text="Clear All"/>
+        <ui:VisualElement name="gridContainer" style="margin-top: 10px; flex-direction: column; height: 228px;"/>
+        <ui:Label name="infoLabel" style="margin-top: 5px;"/>
+    </ui:VisualElement>
+</ui:UXML>

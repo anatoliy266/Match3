@@ -1,0 +1,15 @@
+.grid-cell {
+    width: 24px;
+    height: 24px;
+    margin: 1px;
+    background-color: #555555;
+    border-radius: 2px;
+}
+
+.grid-cell--active {
+    background-color: #4CAF50;
+}
+
+.grid-row {
+    flex-direction: row;
+}

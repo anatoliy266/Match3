@@ -1,21 +1,32 @@
+using NUnit.Framework;
+using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SocialPlatforms.Impl;
 using UnityEngine.UI;
+using static UnityEngine.Rendering.DebugUI;
 
 public class ScoreManager : MonoBehaviour
 {
-    public static ScoreManager Instance;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     public TextMeshProUGUI Score;
     public ScoreData ScoreData;
-    private void Awake()
-    {
-        Instance = this;
-    }
+
+    
 
     public void AddScore(int score)
     {
-        ScoreData.AddScore(score);
+        
+    }
+
+    internal void CalculateScore(List<MatchInfo> matches, int cascadeIteration)
+    {
+        foreach (var match in matches)
+        {
+            ScoreData.AddScore(1 * cascadeIteration);
+        }
+        
         Score.text = $"SCORE: {ScoreData.Score}";
     }
 }
