@@ -15,7 +15,7 @@ public class SwapState : FieldState
         await AnimateMovement(_field, context);
 
 
-        _fsm.Switch(StateEvent.Swap);
+        _fsm.Switch(StateEvent.Swap, context);
     }
 
 

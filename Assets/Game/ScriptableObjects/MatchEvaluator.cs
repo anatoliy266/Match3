@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
+using UnityEngine.Video;
 
 public struct MatchInfo
 {
@@ -12,8 +13,8 @@ public struct MatchInfo
     public int Count => Positions.Count;
 }
 
-
-public class MatchEvaluator : MonoBehaviour
+[CreateAssetMenu(fileName = "MatchEvaluator", menuName = "Scriptable Objects/MatchEvaluator")]
+public class MatchEvaluator : ScriptableObject
 {
     public MatchRules MatchRules;
     [ThreadStatic] private static Queue<Vector2Int> _queue;
@@ -63,8 +64,11 @@ public class MatchEvaluator : MonoBehaviour
         var (rows, cols) = (board.GetLength(0), board.GetLength(1));
         //ищем по бонусу и его правилу все совпадения, если в совпадениях бонуса был найден другой бонус - ищем его тоже но
         //добавляем только ячейки которые не были до этого задеты другим бонусом
-
+        var type = board[startPos.x, startPos.y].Value.Type;
+        
         var groups = new List<MatchInfo>();
+        if (type != TileType.Bomb && type != TileType.VerticalBomb && type != TileType.HorizontalBomb) return groups;
+
         var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
         Array.Clear(visited, 0, visited.Length);
 
@@ -75,7 +79,7 @@ public class MatchEvaluator : MonoBehaviour
         {
             var currPos = queue.Dequeue();
             var group = GroupAt(board, currPos);
-            var cleanGroup = new MatchInfo { Type = board[startPos.x, startPos.y].Value.Type };
+            var cleanGroup = new MatchInfo { Type = board[startPos.x, startPos.y].Value.Type, Positions = new HashSet<Vector2Int>()};
             foreach (var pos in group)
             {
                 if (!visited[pos.x * cols + pos.y])
@@ -138,7 +142,8 @@ public class MatchEvaluator : MonoBehaviour
     public HashSet<Vector2Int> GroupAt(TileController.Snapshot?[,] board, Vector2Int start)
     {
         var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-        var group = BFS(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
+        Debug.Log($"rule is null{rule is null}");
+        var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
         return group;
     }
 
@@ -154,54 +159,54 @@ public class MatchEvaluator : MonoBehaviour
 
         var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
 
-        var count = BFS(board, start, rule.IsMatch).Count;
+        var count = BFS.Run(board, start, rule.IsMatch).Count;
 
 
         return count;
     }
 
-    private HashSet<Vector2Int> BFS(TileController.Snapshot?[,] board,
-        Vector2Int start,
-        Func<TileController.Snapshot?[,], Vector2Int, Vector2Int, Vector2Int, bool> canConnect)
-    {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+    //private HashSet<Vector2Int> BFS(TileController.Snapshot?[,] board,
+    //    Vector2Int start,
+    //    Func<TileController.Snapshot?[,], Vector2Int, Vector2Int, Vector2Int, bool> canConnect)
+    //{
+    //    var (rows, cols) = (board.GetLength(0), board.GetLength(1));
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-        Array.Clear(visited, 0, rows * cols);
+    //    var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+    //    Array.Clear(visited, 0, rows * cols);
 
-        _queue ??= new Queue<Vector2Int>();
-        _queue.Clear();
+    //    _queue ??= new Queue<Vector2Int>();
+    //    _queue.Clear();
 
-        visited[start.x * cols + start.y] = true;
+    //    visited[start.x * cols + start.y] = true;
 
-        _queue.Enqueue(start);
+    //    _queue.Enqueue(start);
 
-        var group = new HashSet<Vector2Int>();
-        while (_queue.Count > 0)
-        {
-            var pos = _queue.Dequeue();
-            group.Add(pos);
+    //    var group = new HashSet<Vector2Int>();
+    //    while (_queue.Count > 0)
+    //    {
+    //        var pos = _queue.Dequeue();
+    //        group.Add(pos);
 
-            for (var i = pos.x - 1; i <= pos.x + 1; i++)
-            {
-                for (var j = pos.y - 1; j <= pos.y + 1; j++)
-                {
+    //        for (var i = pos.x - 1; i <= pos.x + 1; i++)
+    //        {
+    //            for (var j = pos.y - 1; j <= pos.y + 1; j++)
+    //            {
 
-                    if (i < 0 || i >= rows || j < 0 || j >= cols) continue;
-                    if (visited[i * cols + j]) continue;
-                    if (board[i, j] is null) continue;
+    //                if (i < 0 || i >= rows || j < 0 || j >= cols) continue;
+    //                if (visited[i * cols + j]) continue;
+    //                if (board[i, j] is null) continue;
 
-                    if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
-                    {
-                        visited[i * cols + j] = true;
-                        _queue.Enqueue(board[i, j].Value.GridPosition);
-                    }
-                }
-            }
-        }
-        ArrayPool<bool>.Shared.Return(visited);
-        return group;
-    }
+    //                if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
+    //                {
+    //                    visited[i * cols + j] = true;
+    //                    _queue.Enqueue(board[i, j].Value.GridPosition);
+    //                }
+    //            }
+    //        }
+    //    }
+    //    ArrayPool<bool>.Shared.Return(visited);
+    //    return group;
+    //}
 }
 
 

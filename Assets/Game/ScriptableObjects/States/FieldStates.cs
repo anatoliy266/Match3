@@ -11,7 +11,7 @@ public class FieldStateMapping
     [Req]public FieldState State;
 
     [Tooltip("Переходы")]
-    [Req] public List<Transition> Transitions;
+    public List<Transition> Transitions;
 }
 
 [Serializable]
@@ -37,7 +37,9 @@ public enum StateEvent
     CompactTiles,
     FillEmptyTiles,
     HasMoves,
-    NoMovesLeft
+    NoMovesLeft,
+    SwapBack,
+    SpawnBonus
 }
 
 

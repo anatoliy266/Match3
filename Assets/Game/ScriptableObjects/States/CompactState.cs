@@ -16,9 +16,11 @@ public class CompactState : FieldState
         _field = field;
         _fsm = machine;
 
-        _field.CompactBoard(context);
+        var compacts = _field.CompactBoard();
 
-        if (context.Compacts.Count == 0)
+        context.Compacts = compacts;
+
+        if (compacts.Count == 0)
         {
             _fsm.Switch(StateEvent.CompactTiles, context);
             return;
@@ -37,7 +39,7 @@ public class CompactState : FieldState
         {
             Vector3 worldTargetPos = _field.GetWorldPos(compact.TargetPos);
 
-            var task = _field.AnimationManager.DoMoveAsync(compact.Tile.transform, worldTargetPos, 1.0f);
+            var task = _field.AnimationManager.DoMoveExactTimeAsync(compact.Tile.transform, worldTargetPos);
             falls.Add(task);
         }
 

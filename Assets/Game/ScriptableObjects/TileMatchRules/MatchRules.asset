@@ -40,3 +40,6 @@ MonoBehaviour:
   - tileType: 9
     rules:
     - {fileID: 11400000, guid: f909a0eb18350c449b04a4108f537260, type: 2}
+  - tileType: 0
+    rules:
+    - {fileID: 11400000, guid: 032c7631a8ad7cb4c8871bc68313d79c, type: 2}

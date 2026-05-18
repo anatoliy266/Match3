@@ -17,10 +17,10 @@ public class LoadingState : FieldState
         _field = field;
         _fsm = machine;
 
-        _field.DragManager.ClickingAction.action.Disable();
-        _field.DragManager.TrackingAction.action.Disable();
+        //_field.DragManager.ClickingAction.action.Disable();
+        //_field.DragManager.TrackingAction.action.Disable();
 
-        _field.FillBoard();
+        _field.FillEmptyTilesOnGrid(context.CascadeIteration);
 
         await AnimateLoading();
 

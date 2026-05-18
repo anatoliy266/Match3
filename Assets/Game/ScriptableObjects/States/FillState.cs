@@ -12,7 +12,7 @@ public class FillState : FieldState
         _field = field;
         _fsm = machine;
 
-        _field.FillEmptyTilesOnGrid();
+        _field.FillEmptyTilesOnGrid(context.CascadeIteration);
 
         await AnimateFillEmpty();
 

@@ -2,17 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using static UnityEngine.Rendering.DebugUI;
 
-[CreateAssetMenu(fileName = "NewScriptableObjectScript", menuName = "Scriptable Objects/NewScriptableObjectScript")]
-public class NewScriptableObjectScript : FieldState
+[CreateAssetMenu(fileName = "RemoveState", menuName = "Scriptable Objects/RemoveState")]
+public class RemoveState : FieldState
 {
     public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
         _field = field;
         _fsm = machine;
 
-
-        _field.RemoveTiles(context.Matches);
+        foreach (var match in context.Matches)
+        {
+            _field.RemoveTiles(match.Positions);
+        }
+        
         await AnimateDestroy(context);
 
         _fsm.Switch(StateEvent.DestroyTiles, context);

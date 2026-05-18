@@ -22,12 +22,12 @@ public class Evaluation : FieldState
         {
             if (context.From.IsBonus)
             {
-                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.PositionFrom);
+                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.From.GridPosition);
                 if (group.Count > 0) foundMatches.AddRange(group);
             }
             if (context.To.IsBonus)
             {
-                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.PositionTo);
+                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.To.GridPosition);
                 if (group.Count > 0) foundMatches.AddRange(group);
             }
         }
@@ -42,9 +42,6 @@ public class Evaluation : FieldState
             _fsm.Switch(StateEvent.NoMatches, context);
             return;
         }
-
-        //var score = GetScore(foundMatches);
-        //_field.ScoreManager.AddScore(score);
         
         context.Matches = foundMatches;
         _field.ScoreManager.CalculateScore(context.Matches, context.CascadeIteration);
@@ -54,23 +51,6 @@ public class Evaluation : FieldState
         context.CascadeIteration += 1;
         _fsm.Switch(StateEvent.MatchesFound, context);
     }
-
-    //private int GetScore(List<HashSet<Vector2Int>> matches)
-    //{
-    //    int totalScore = 0;
-    //    foreach (var group in matches)
-    //    {
-    //        foreach (var pos in group)
-    //        {
-    //            var tile = _field.GetTileAt(pos);
-    //            if (tile != null)
-    //            {
-    //                totalScore += _field.TileTypeData.GetScore(tile.Type);
-    //            }
-    //        }
-    //    }
-    //    return totalScore;
-    //}
 }
 
 

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -13,8 +14,16 @@ public class IdleState : FieldState
 
     public override void OnFieldEvent(TransitionContext eventData)
     {
-        _field.DragManager.OnDragCompleted -= OnFieldEvent;
-        base.OnFieldEvent(eventData);
-        _fsm.Switch(eventData.Type);
+        try
+        {
+            Debug.Log("OnFieldEvent called");
+            _field.DragManager.OnDragCompleted -= OnFieldEvent;
+
+            _fsm.Switch(eventData.Type, eventData);
+        } catch (Exception e)
+        {
+            Debug.LogException(e);
+        }
+        
     }
 }
