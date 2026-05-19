@@ -119,6 +119,134 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &110361029
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 110361036}
+  - component: {fileID: 110361035}
+  - component: {fileID: 110361034}
+  - component: {fileID: 110361033}
+  - component: {fileID: 110361032}
+  - component: {fileID: 110361031}
+  - component: {fileID: 110361030}
+  m_Layer: 0
+  m_Name: Level
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &110361030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7e38024b8996004d8039d4f4100a40b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FieldController
+  Rows: 0
+  Cols: 0
+  Tile: {fileID: 0}
+  TileTypeData: {fileID: 0}
+  SpawnRules: {fileID: 0}
+  DragManager: {fileID: 0}
+  AnimationManager: {fileID: 0}
+  MatchEvaluator: {fileID: 0}
+  SpawnEvaluator: {fileID: 0}
+  ScoreManager: {fileID: 0}
+--- !u!114 &110361031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af2ffbc3007aefe4383389b64e462e8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScoreManager
+  Score: {fileID: 0}
+  ScoreData: {fileID: 0}
+--- !u!114 &110361032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdcd32a513be88043bc3b0688f30c43d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AnimationManager
+  AnimDuration: 0.5
+  AnimSpeed: 1
+--- !u!114 &110361033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f9619d55ea85d244b4ba302f230d224, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DragManager
+  TrackingAction: {fileID: 5423305570095282013, guid: f232a261b1a352c4e8f3d320856044c6, type: 3}
+  ClickingAction: {fileID: 556487031160868239, guid: f232a261b1a352c4e8f3d320856044c6, type: 3}
+  Camera: {fileID: 519420031}
+--- !u!114 &110361034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fef74c8967f3526448fedf7aac837541, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FiniteStateMachine
+  States: {fileID: 11400000, guid: a2103d0970378ac4ab7d1c44c9aaeb4d, type: 2}
+  State: {fileID: 11400000, guid: 2c59d90c367a1944fa4ffb9c564e1432, type: 2}
+--- !u!114 &110361035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8348d19bf2cb6104098f68e6366062c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Level
+--- !u!4 &110361036
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110361029}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 886.0482, y: 538.542, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &123703797
 GameObject:
   m_ObjectHideFlags: 0
@@ -597,7 +725,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fef74c8967f3526448fedf7aac837541, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FiniteStateMachine
-  Field: {fileID: 1804786601}
   States: {fileID: 11400000, guid: a2103d0970378ac4ab7d1c44c9aaeb4d, type: 2}
   State: {fileID: 11400000, guid: 2c59d90c367a1944fa4ffb9c564e1432, type: 2}
 --- !u!4 &1112512515
@@ -927,3 +1054,4 @@ SceneRoots:
   - {fileID: 1243501027}
   - {fileID: 1819209398}
   - {fileID: 123703799}
+  - {fileID: 110361036}

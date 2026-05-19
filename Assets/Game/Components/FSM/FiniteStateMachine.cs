@@ -3,8 +3,8 @@ using UnityEngine;
 
 public class FiniteStateMachine : MonoBehaviour
 {
-    [Tooltip("Ссылка на управляемый обьект поля")]
-    [Req] public FieldController Field;
+    //[Tooltip("Ссылка на управляемый обьект поля")]
+    //[Req] public FieldController Field;
 
 
     [Tooltip("Состояния")]
@@ -13,9 +13,12 @@ public class FiniteStateMachine : MonoBehaviour
     [Req] public FieldState State;
 
 
+    private FieldController _field;
+
+
     private void Start()
     {
-        if (State != null) State.Enter(Field, this);
+        if (State != null) State.Enter(_field, this);
     }
 
     public void Switch(StateEvent e, TransitionContext context = default)
@@ -24,7 +27,7 @@ public class FiniteStateMachine : MonoBehaviour
         if (nextState is not null)
         {
             State = nextState;
-            State.Enter(Field, this, context);
+            State.Enter(_field, this, context);
         }
     }
 }
