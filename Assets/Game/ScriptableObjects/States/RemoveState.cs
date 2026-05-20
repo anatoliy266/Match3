@@ -7,7 +7,7 @@ using static UnityEngine.Rendering.DebugUI;
 [CreateAssetMenu(fileName = "RemoveState", menuName = "Scriptable Objects/RemoveState")]
 public class RemoveState : FieldState
 {
-    public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
         _field = field;
         _fsm = machine;
@@ -17,26 +17,36 @@ public class RemoveState : FieldState
             _field.RemoveTiles(match.Positions);
         }
         
-        await AnimateDestroy(context);
+        AnimateDestroy(context);
 
         _fsm.Switch(StateEvent.DestroyTiles, context);
     }
 
-    private async Task AnimateDestroy(TransitionContext context)
+    private void AnimateDestroy(TransitionContext context)
     {
-        var destroys = new List<Task>();
+        var destroyAnimList = new List<AnimationData>();
 
         foreach (var group in context.Matches)
         {
-            foreach (var tile in group.Positions)
+            foreach (var tilePos in group.Positions)
             {
-                if (context.Snapshot[tile.x, tile.y]  is not null)
+                if (context.Snapshot[tilePos.x, tilePos.y]  is not null)
                 {
-                    var task = _field.AnimationManager.DoDestroyAsync(context.Snapshot[tile.x, tile.y].Value.Transform, 1.0f);
-                    destroys.Add(task);
+                    //var tile = _field.GetTileAt(tilePos);
+                    var tile = context.Snapshot[tilePos.x, tilePos.y].Value.Transform;
+
+                    var data = new AnimationData
+                    {
+                        Type = AnimationType.Destroy,
+                        Target = tile,
+                        Duration = 1.0f,
+                    };
+                    destroyAnimList.Add(data);
                 }
             }
         }
-        await Task.WhenAll(destroys);
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, destroyAnimList);
     }
 }

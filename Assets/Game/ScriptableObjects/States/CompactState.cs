@@ -11,7 +11,7 @@ public struct CompactInfo
 [CreateAssetMenu(fileName = "CompactState", menuName = "Scriptable Objects/CompactState")]
 public class CompactState : FieldState
 {
-    public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
         _field = field;
         _fsm = machine;
@@ -25,24 +25,29 @@ public class CompactState : FieldState
             _fsm.Switch(StateEvent.CompactTiles, context);
             return;
         }
-        await AnimateFalls(context);
+        AnimateFalls(context);
 
         _fsm.Switch(StateEvent.CompactTiles, context);
     }
 
 
-    private async Task AnimateFalls(TransitionContext context)
+    private void AnimateFalls(TransitionContext context)
     {
-        var falls = new List<Task>();
+        var fallsAnimList = new List<AnimationData>();
 
         foreach (var compact in context.Compacts)
         {
-            Vector3 worldTargetPos = _field.GetWorldPos(compact.TargetPos);
-
-            var task = _field.AnimationManager.DoMoveExactTimeAsync(compact.Tile.transform, worldTargetPos);
-            falls.Add(task);
+            var data = new AnimationData
+            {
+                Type = AnimationType.Move,
+                Target = compact.Tile.transform,
+                TargetPosition = _field.GetWorldPos(compact.TargetPos),
+                Duration = 1.0f
+            };
+            fallsAnimList.Add(data);
         }
 
-        await Task.WhenAll(falls);
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, fallsAnimList);
     }
 }

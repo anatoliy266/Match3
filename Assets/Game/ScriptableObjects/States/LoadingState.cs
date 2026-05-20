@@ -12,39 +12,46 @@ public class LoadingState : FieldState
     //Пул фишек(какие цвета конфет/самоцветов разрешены на этом уровне).
     //Цели уровня(набрать 1000 очков, уничтожить 20 клеток желе, опустить 3 ингредиента вниз).
     //Лимиты(количество ходов или таймер).
-    public async override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
         _field = field;
         _fsm = machine;
 
-        //_field.DragManager.ClickingAction.action.Disable();
-        //_field.DragManager.TrackingAction.action.Disable();
+        var name = _fsm.Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Trigger(name, false);
 
         _field.FillEmptyTilesOnGrid(context.CascadeIteration);
 
-        await AnimateLoading();
+        AnimateLoading();
 
         _fsm.Switch(StateEvent.FinishLoading, context);
     }
 
-    private async Task AnimateLoading()
+    private void AnimateLoading()
     {
-        var loadings = new List<Task>();
+        var animationDataList = new List<AnimationData>();
+        var bounds = _field.GetBounds();
 
-        for (var i = 0; i < _field.Rows; i++)
+        for (var i = 0; i < bounds.x; i++)
         {
-            for (var j = 0; j < _field.Cols; j++)
+            for (var j = 0; j < bounds.y; j++)
             {
-                var tile = _field.GetTileAt(new Vector2Int(i, j));
-                if (tile == null) continue;
+                var gridPos = new Vector2Int(i, j);
+                var tile = _field.GetTileAt(gridPos);
+                var targetWorldPosition = _field.GetWorldPos(tile.GridPosition);
+                //todo: var duration - тоже както надо рассчитывать, по разнице положений на поле, хз.
 
-                Vector3 targetWorldPosition = _field.GetWorldPos(tile.GridPosition);
-
-                var task = _field.AnimationManager.DoMoveExactTimeAsync(tile.transform, targetWorldPosition, 1.0f);
-                loadings.Add(task);
+                var data = new AnimationData
+                {
+                    Type = AnimationType.Move,
+                    Target = tile.transform,
+                    TargetPosition = targetWorldPosition,
+                    Duration = 1.0f
+                };
+                animationDataList.Add(data);
             }
         }
-
-        await Task.WhenAll(loadings);
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
     }
 }

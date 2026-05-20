@@ -7,25 +7,27 @@ using static UnityEngine.Rendering.DebugUI.Table;
 [CreateAssetMenu(fileName = "FillState", menuName = "Scriptable Objects/FillState")]
 public class FillState : FieldState
 {
-    public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
         _field = field;
         _fsm = machine;
 
         _field.FillEmptyTilesOnGrid(context.CascadeIteration);
 
-        await AnimateFillEmpty();
+        AnimateFillEmpty();
 
         _fsm.Switch(StateEvent.FillEmptyTiles, context);
     }
 
-    private async Task AnimateFillEmpty()
+    private void AnimateFillEmpty()
     {
-        var fallTasks = new List<Task>();
+        var fillAnimList = new List<AnimationData>();
 
-        for (var i = 0; i < _field.Rows; i++)
+        var bounds = _field.GetBounds();
+
+        for (var i = 0; i < bounds.x; i++)
         {
-            for (var j = 0; j < _field.Cols; j++)
+            for (var j = 0; j < bounds.y; j++)
             {
                 var tile = _field.GetTileAt(new Vector2Int(i, j));
                 if (tile == null) continue;
@@ -34,12 +36,19 @@ public class FillState : FieldState
 
                 if (tile.transform.position != targetWorldPosition)
                 {
-                    var task = _field.AnimationManager.DoMoveExactTimeAsync(tile.transform, targetWorldPosition, 1.0f);
-                    fallTasks.Add(task);
+                    var data = new AnimationData
+                    {
+                        Type = AnimationType.Move,
+                        Target = tile.transform,
+                        TargetPosition = targetWorldPosition,
+                        Duration = 1.0f
+                    };
+                    fillAnimList.Add(data);
                 }
             }
         }
 
-        await Task.WhenAll(fallTasks);
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, fillAnimList);
     }
 }

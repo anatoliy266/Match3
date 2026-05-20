@@ -9,15 +9,19 @@ public class IdleState : FieldState
     {
         _field = field;
         _fsm = machine;
-        _field.DragManager.OnDragCompleted += OnFieldEvent;
+        var name = _fsm.Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Trigger(name, true);
+        GameplayEventBus<TransitionContext>.Register(name, OnFieldEvent);
     }
 
     public override void OnFieldEvent(TransitionContext eventData)
     {
+        
         try
         {
-            Debug.Log("OnFieldEvent called");
-            _field.DragManager.OnDragCompleted -= OnFieldEvent;
+            var name = _fsm.Events.GetBusName(GameEvent.Input);
+            GameplayEventBus<bool>.Trigger(name, false);
+            GameplayEventBus<TransitionContext>.Unregister(name, OnFieldEvent);
 
             _fsm.Switch(eventData.Type, eventData);
         } catch (Exception e)

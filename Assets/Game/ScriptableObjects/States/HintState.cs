@@ -11,7 +11,7 @@ public struct HintInfo
 [CreateAssetMenu(fileName = "HintState", menuName = "Scriptable Objects/HintState")]
 public class HintState : FieldState
 {
-    public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context)
     {
         _field = field;
         _fsm = machine;
@@ -32,17 +32,17 @@ public class HintState : FieldState
             Tile2 = _field.GetTileAt(coords.Value.pos2)
         };
 
-        await AnimateHint(context);
+        AnimateHint(context);
 
         _fsm.Switch(StateEvent.HasMoves, context);
     }
 
-    private async Task AnimateHint(TransitionContext context)
+    private void AnimateHint(TransitionContext context)
     {
         var hint = context.CurrentHint;
         if (hint.Tile1 == null || hint.Tile2 == null) return;
 
         // Чистая таска анимации покачивания на экране
-        await _field.AnimationManager.DoHintWiggleAsync(hint.Tile1.transform, hint.Tile2.transform);
+        //await _field.AnimationManager.DoHintWiggleAsync(hint.Tile1.transform, hint.Tile2.transform);
     }
 }

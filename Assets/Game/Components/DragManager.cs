@@ -1,17 +1,20 @@
 using System;
 using Unity.InferenceEngine;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class DragManager : MonoBehaviour
 {
     [Header("Input Refs")]
-    public InputActionReference TrackingAction;
-    public InputActionReference ClickingAction;
+    [Req] public InputActionReference TrackingAction;
+    [Req] public InputActionReference ClickingAction;
 
-    public static DragManager Instance;
+    [Header("Camera Ref")]
+    [Req] public Camera Camera;
+    [Req] public Events Events;
 
-    public Camera Camera;
+    //public event Action<TransitionContext> OnDragCompleted;
 
     private Vector3 _startPosition;
     private Vector2Int _startGridPos;
@@ -22,29 +25,40 @@ public class DragManager : MonoBehaviour
     private Plane _dragPlane;
     private bool _isBusy = false;
 
-    public event Action<TransitionContext> OnDragCompleted;
+    
 
-    private void Awake()
-    {
-        Instance = this;
-    }
     private void OnEnable()
     {
-        TrackingAction.action.Enable();
-        ClickingAction.action.Enable();
-
         TrackingAction.action.performed += OnTouchPosition;
         ClickingAction.action.performed += OnTouchPress;
         ClickingAction.action.canceled += OnTouchRelease;
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Register(name, OnInputEventReceived);
     }
+
+    private void OnInputEventReceived(bool enable)
+    {
+        Debug.Log("inputsystem switch event called");
+        if (enable)
+        {
+            TrackingAction.action.Enable();
+            ClickingAction.action.Enable();
+        } else
+        {
+            TrackingAction.action.Disable();
+            ClickingAction.action.Disable();
+        }
+    }
+
     private void OnDisable()
     {
         TrackingAction.action.performed -= OnTouchPosition;
         ClickingAction.action.performed -= OnTouchPress;
         ClickingAction.action.canceled -= OnTouchRelease;
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Unregister(name, OnInputEventReceived);
 
-        TrackingAction.action.Disable();
-        ClickingAction.action.Disable();
+        
     }
 
 
@@ -69,6 +83,8 @@ public class DragManager : MonoBehaviour
     //        }
     //    }
     //}
+
+
 
     private void OnTouchPress(InputAction.CallbackContext context)
     {
@@ -116,7 +132,11 @@ public class DragManager : MonoBehaviour
                     PositionFrom = _startGridPos,
                     PositionTo = to.GridPosition
                 };
-                OnDragCompleted?.Invoke(ctx);
+
+                var name = Events.GetBusName(GameEvent.Input);
+                GameplayEventBus<TransitionContext>.Trigger(name, ctx);
+
+                //OnDragCompleted?.Invoke(ctx);
             } else
             {
                 _selectedObject.transform.position = _startPosition;

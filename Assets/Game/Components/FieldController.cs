@@ -1,7 +1,10 @@
 
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
+
 using static UnityEngine.Rendering.DebugUI;
 
 public struct SpawnInfo
@@ -15,32 +18,41 @@ public struct SpawnInfo
 
 public class FieldController : MonoBehaviour
 {
-    public int Rows;
-    public int Cols;
-
+    private int _rows = 1;
+    private int _cols = 1;
     [Req] public TileController Tile;
     [Req] public TileTypeData TileTypeData;
-    [Req] public SpawnRules SpawnRules;
-    [Req] public DragManager DragManager;
-    [Req] public AnimationManager AnimationManager;
     [Req] public MatchEvaluator MatchEvaluator;
     [Req] public SpawnEvaluator SpawnEvaluator;
-    [Req] public ScoreManager ScoreManager;
+
 
     private TileController[,] _tiles;
+    private UnityEngine.Pool.ObjectPool<TileController> _tilePool;
 
 
-    private void Awake()
+    public void Initialize(LevelSettings data)
     {
-        _tiles = new TileController[Rows, Cols];
+        // 1. Принимаем данные из ScriptableObject
+        _rows = data.Rows;
+        _cols = data.Columns;
+
+        _tilePool = new ObjectPool<TileController>(createFunc: () => Instantiate(Tile),
+            actionOnGet: (tile) => tile.gameObject.SetActive(true),
+            actionOnRelease: (tile) => tile.gameObject.SetActive(false),
+            actionOnDestroy: (tile) => Destroy(tile.gameObject),
+            collectionCheck: true,
+            defaultCapacity: 10,
+            maxSize: _rows * _cols);
+
+        _tiles = new TileController[_rows, _cols];
     }
 
 
     public TileController.Snapshot?[,] ToSnapshot()
     {
-        var board = new TileController.Snapshot?[Rows, Cols];
-        for (var r = 0; r < Rows; r++)
-            for (var c = 0; c < Cols; c++)
+        var board = new TileController.Snapshot?[_rows, _cols];
+        for (var r = 0; r < _rows; r++)
+            for (var c = 0; c < _cols; c++)
                 board[r, c] = _tiles[r, c];
         return board;
     }
@@ -48,11 +60,11 @@ public class FieldController : MonoBehaviour
 
     public Vector3 GetWorldPos(int row, int col)
     {
-        return new Vector3(col - Cols / 2, row - Rows / 2, 0);
+        return new Vector3(col - _cols / 2, row - _rows / 2, 0);
     }
     public Vector3 GetWorldPos(Vector2Int v)
     {
-        return new Vector3(v.y - Cols / 2, v.x - Rows / 2, 0);
+        return new Vector3(v.y - _cols / 2, v.x - _rows / 2, 0);
     }
 
     
@@ -107,10 +119,10 @@ public class FieldController : MonoBehaviour
     {
         var fallCommands = new List<CompactInfo>();
 
-        for (var col = 0; col < Cols; col++)
+        for (var col = 0; col < _cols; col++)
         {
             var (slow, fast) = (0, 0);
-            while (fast < Rows)
+            while (fast < _rows)
             {
                 if (_tiles[fast, col] != null)
                 {
@@ -141,7 +153,8 @@ public class FieldController : MonoBehaviour
 
     private TileController SpawnTileAt(Vector2Int pos, Vector3 worldPosition, TileType type, bool isBonus)
     {
-        var tile = ObjectPool.SharedInstance.GetObject();
+        //var tile = ObjectPool.SharedInstance.GetObject();
+        var tile = _tilePool.Get();
         tile.SetType(type);
 
         tile.GridPosition = pos;
@@ -164,7 +177,7 @@ public class FieldController : MonoBehaviour
         }
         else
         {
-            var topCellPos = GetWorldPos(Rows - 1, info.Position.y);
+            var topCellPos = GetWorldPos(_rows - 1, info.Position.y);
             spawnWorldPos = new Vector3(topCellPos.x, topCellPos.y + info.Offset, 0);
 
             //нужно выбрать тип таким образом чтобы он с уменьшающимся от cycle шансом мог заспаунить бонус
@@ -179,11 +192,11 @@ public class FieldController : MonoBehaviour
         var snapshot = ToSnapshot();
 
 
-        for (var col = 0; col < Cols; col++)
+        for (var col = 0; col < _cols; col++)
         {
             int spawnOffset = 1;
 
-            for (var row = 0; row < Rows; row++)
+            for (var row = 0; row < _rows; row++)
             {
                 if (_tiles[row, col] == null)
                 {
@@ -206,5 +219,7 @@ public class FieldController : MonoBehaviour
     {
         _tiles[pos.x, pos.y] = tile;
     }
+
+    internal Vector2Int GetBounds() => new Vector2Int(_rows, _cols);
 }
 

@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "BonusState", menuName = "Scriptable Objects/BonusState")]
 public class BonusState : FieldState
 {
-    public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
         Debug.Log("bonus state");
         _field = field;
@@ -32,20 +34,27 @@ public class BonusState : FieldState
             spawnedBonuses.Add(tile);
         }
 
-        await AnimateBonusSpawn(spawnedBonuses);
+        AnimateBonusSpawn(spawnedBonuses);
 
         _fsm.Switch(StateEvent.SpawnBonus, context);
     }
 
-    private async Task AnimateBonusSpawn(HashSet<TileController> bonuses)
+    private void AnimateBonusSpawn(HashSet<TileController> bonuses)
     {
-        var bonusTasks = new List<Task>();
-
+        var bonusAnimList = new List<AnimationData>();        
         foreach (var bonus in bonuses)
         {
-            var task = _field.AnimationManager.DoSpawnAtPointAsync(bonus.transform, 1.0f);
-            bonusTasks.Add(task);
+            var data = new AnimationData
+            {
+                Type = AnimationType.SpawnAtPoint,
+                Target = bonus.transform,
+                Duration = 1.0f
+
+            };
+            bonusAnimList.Add(data);
         }
-        await Task.WhenAll(bonusTasks);
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, bonusAnimList);
     }
 }

@@ -142,7 +142,6 @@ public class MatchEvaluator : ScriptableObject
     public HashSet<Vector2Int> GroupAt(TileController.Snapshot?[,] board, Vector2Int start)
     {
         var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-        Debug.Log($"rule is null{rule is null}");
         var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
         return group;
     }

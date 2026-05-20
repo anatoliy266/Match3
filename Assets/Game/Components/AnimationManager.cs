@@ -4,94 +4,103 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static UnityEngine.GraphicsBuffer;
 
+
+public enum AnimationType
+{
+    Spawn,
+    SpawnAtPoint,
+    Move,
+    Destroy,
+    Wiggle
+}
+
+public struct AnimationData
+{
+    public AnimationType Type;
+    public Transform Target;
+    public Vector3 TargetPosition;
+    public float Duration;
+}
 public  class AnimationManager : MonoBehaviour
 {
     public float AnimDuration;
     public float AnimSpeed;
-    public async Task DoDestroyAsync(Transform o, float duration, CancellationToken cancellationToken = default)
+
+    [Req] public Events Events;
+
+    private Queue<List<AnimationData>> _queue = new Queue<List<AnimationData>>();
+    private Sequence _currentSequence;
+
+    private void Awake()
     {
-        await Sequence.Create(0).Group(Tween.Scale(o, 0.0f, duration)).OnComplete(() =>
+        var evname = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Register(evname, OnAnimationRequested);
+    }
+
+    private void OnAnimationRequested(List<AnimationData> data)
+    {
+        _queue.Enqueue(data);
+        if (!_currentSequence.isAlive)
         {
-            if (o != null)
+            PlayNext();
+        }
+    }
+
+    private void PlayNext()
+    {
+        if (_queue.Count == 0) return;
+        var data = _queue.Dequeue();
+        _currentSequence = Sequence.Create();
+
+        foreach (var animation in data)
+        {
+            switch (animation.Type)
             {
-                if (o.TryGetComponent<TileController>(out var tile))
-                {
-                    ObjectPool.SharedInstance.ReturnObject(tile);
-                }
-                else
-                {
-                    UnityEngine.Object.Destroy(o.gameObject);
-                }
+                case AnimationType.Spawn:
+                    break;
+                case AnimationType.SpawnAtPoint:
+                    var spawnAtTween = Tween.Scale(animation.Target, Vector3.zero, animation.Target.localScale, animation.Duration);
+                    break;
+                case AnimationType.Destroy:
+                    var destroyTween = Tween.Scale(animation.Target, 0.0f, animation.Duration).OnComplete(() => {
+                        if (animation.Target != null)
+                        {
+                            if (animation.Target.TryGetComponent<TileController>(out var tile))
+                            {
+                                ObjectPool.SharedInstance.ReturnObject(tile);
+                            }
+                            else
+                            {
+                                UnityEngine.Object.Destroy(animation.Target.gameObject);
+                            }
+                        }
+                    });
+                    _currentSequence.Group(destroyTween);
+                    break;
+
+                case AnimationType.Move:
+                    var moveTween = Tween.Position(animation.Target, animation.TargetPosition, animation.Duration);
+                    _currentSequence.Group(moveTween);
+                    break;
+
+                case AnimationType.Wiggle:
+                    break;
             }
-        });
+        }
+        _currentSequence.OnComplete(this, target => target.PlayNext());
     }
 
-    
-    public async Task DoMoveAsync(Transform o, Vector3 targetPosition, float speed = 1.0f, CancellationToken cancellationToken = default)
+
+
+    private void OnDestroy()
     {
-        await Tween.PositionAtSpeed(o, targetPosition, AnimSpeed);
-        o.position = targetPosition;
-    }
-
-    public async Task DoMoveExactTimeAsync(Transform o, Vector3 targetPosition, float duration = 1.0f, CancellationToken cancellationToken = default)
-    {
-        await Tween.Position(o, targetPosition, AnimDuration);
-        o.position = targetPosition;
-    }
-
-    public async Task DoSpawnAtPointAsync(Transform o, float duration = 1.0f, CancellationToken cancellationToken = default)
-    {
-        var start = Vector3.zero;
-        var end = o.localScale;
-        await Tween.Scale(o, start, end, AnimDuration);
-        o.localScale = end;
-    }
-
-    //public async Task DoHintWiggleAsync(Transform transform1, Transform transform2)
-    //{
-    //    Vector3 startPos1 = transform1.position;
-    //    Vector3 startPos2 = transform2.position;
-    //    Vector3 midPoint = (startPos1 + startPos2) / 2f;
-
-    //    // В PrimeTween можно склеивать твины в цепочки (Sequence) и делать им ToTask()
-    //    var sequence = Sequence.Create()
-    //        // Движение навстречу
-    //        .Group(Tween.Position(transform1, Vector3.Lerp(startPos1, midPoint, 0.4f), 0.15f, Ease.OutQuad))
-    //        .Group(Tween.Position(transform2, Vector3.Lerp(startPos2, midPoint, 0.4f), 0.15f, Ease.OutQuad))
-    //        // Возврат назад
-    //        .Chain(Tween.Position(transform1, startPos1, 0.15f, Ease.InQuad))
-    //        .Group(Tween.Position(transform2, startPos2, 0.15f, Ease.InQuad));
-
-    //    // Дожидаемся окончания всей цепочки анимации
-    //    await sequence;
-    //}
-
-    public async Task DoHintWiggleAsync(Transform transform1, Transform transform2)
-    {
-        Vector3 startPos1 = transform1.position;
-        Vector3 startPos2 = transform2.position;
-        Vector3 midPoint = (startPos1 + startPos2) / 2f;
-
-        // Делим общую длительность на 2 фазы (туда и обратно)
-        float stepDuration = AnimDuration / 2f;
-
-        var sequence = Sequence.Create()
-            // Движение навстречу
-            .Group(Tween.Position(transform1, Vector3.Lerp(startPos1, midPoint, 0.4f), stepDuration, Ease.OutQuad))
-            .Group(Tween.Position(transform2, Vector3.Lerp(startPos2, midPoint, 0.4f), stepDuration, Ease.OutQuad))
-            // Возврат назад
-            .Chain(Tween.Position(transform1, startPos1, stepDuration, Ease.InQuad))
-            .Group(Tween.Position(transform2, startPos2, stepDuration, Ease.InQuad));
-
-        // Управляем скоростью всей цепочки через глобальный множитель
-        sequence.timeScale = AnimSpeed;
-
-        // Дожидаемся окончания всей цепочки анимации
-        await sequence;
+        var evname = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Unregister(evname, OnAnimationRequested);
     }
 }

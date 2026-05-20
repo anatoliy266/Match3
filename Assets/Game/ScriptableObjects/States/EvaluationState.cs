@@ -9,8 +9,9 @@ using static UnityEngine.Rendering.DebugUI.Table;
 public class Evaluation : FieldState
 {
     
-    public override async void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
     {
+        Debug.Log("Evaluation state enter");
         _field = field;
         _fsm = machine;
         var snapshot = _field.ToSnapshot();
@@ -44,7 +45,7 @@ public class Evaluation : FieldState
         }
         
         context.Matches = foundMatches;
-        _field.ScoreManager.CalculateScore(context.Matches, context.CascadeIteration);
+        //_field.ScoreManager.CalculateScore(context.Matches, context.CascadeIteration);
 
         context.Snapshot = snapshot;
 

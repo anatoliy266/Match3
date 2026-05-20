@@ -17,6 +17,7 @@ public struct TransitionContext
     public List<MatchInfo> Matches { get; internal set; }
     public int CascadeIteration { get; internal set; }
     public TileController.Snapshot?[,] Snapshot { get; internal set; }
+    public bool DragNDropEnable { get; internal set; }
 }
 
 public abstract class FieldState : ScriptableObject 
