@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.Rendering;
+using static UnityEditor.PlayerSettings;
 using static UnityEngine.GraphicsBuffer;
 
 
@@ -60,26 +62,19 @@ public  class AnimationManager : MonoBehaviour
 
         foreach (var animation in data)
         {
+            if (!animation.Target.gameObject.activeSelf) { continue; }
             switch (animation.Type)
             {
                 case AnimationType.Spawn:
                     break;
                 case AnimationType.SpawnAtPoint:
                     var spawnAtTween = Tween.Scale(animation.Target, Vector3.zero, animation.Target.localScale, animation.Duration);
+                    _currentSequence.Group(spawnAtTween);
                     break;
                 case AnimationType.Destroy:
                     var destroyTween = Tween.Scale(animation.Target, 0.0f, animation.Duration).OnComplete(() => {
-                        if (animation.Target != null)
-                        {
-                            if (animation.Target.TryGetComponent<TileController>(out var tile))
-                            {
-                                ObjectPool.SharedInstance.ReturnObject(tile);
-                            }
-                            else
-                            {
-                                UnityEngine.Object.Destroy(animation.Target.gameObject);
-                            }
-                        }
+                        var tile = animation.Target.GetComponent<TileController>();
+                        ObjectPool.SharedInstance.ReturnObject(tile);
                     });
                     _currentSequence.Group(destroyTween);
                     break;

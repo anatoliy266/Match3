@@ -78,7 +78,10 @@ public class MatchEvaluator : ScriptableObject
         while (queue.Count > 0)
         {
             var currPos = queue.Dequeue();
+
             var group = GroupAt(board, currPos);
+            if (group.Count < 3) continue;
+
             var cleanGroup = new MatchInfo { Type = board[startPos.x, startPos.y].Value.Type, Positions = new HashSet<Vector2Int>()};
             foreach (var pos in group)
             {
@@ -90,7 +93,8 @@ public class MatchEvaluator : ScriptableObject
                 }
 
             }
-            groups.Add(cleanGroup);
+            if (cleanGroup.Positions.Count > 0)
+                groups.Add(cleanGroup);
         }
         ArrayPool<bool>.Shared.Return(visited);
         return groups;
@@ -141,9 +145,19 @@ public class MatchEvaluator : ScriptableObject
 
     public HashSet<Vector2Int> GroupAt(TileController.Snapshot?[,] board, Vector2Int start)
     {
-        var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-        var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
-        return group;
+        try
+        {
+            if (start.x == -1 || start.y == -1) { Debug.Log($"-1 : {start.x}, {start.y}"); }
+            var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
+            var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
+            return group;
+        } catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            Debug.Log(board[start.x, start.y].Value.Type);
+            Debug.Log($"{start.x}, {start.y}");
+            throw new Exception();
+        }
     }
 
     public int GroupSizeAt(TileController.Snapshot?[,] board, Vector2Int start)
@@ -163,49 +177,6 @@ public class MatchEvaluator : ScriptableObject
 
         return count;
     }
-
-    //private HashSet<Vector2Int> BFS(TileController.Snapshot?[,] board,
-    //    Vector2Int start,
-    //    Func<TileController.Snapshot?[,], Vector2Int, Vector2Int, Vector2Int, bool> canConnect)
-    //{
-    //    var (rows, cols) = (board.GetLength(0), board.GetLength(1));
-
-    //    var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-    //    Array.Clear(visited, 0, rows * cols);
-
-    //    _queue ??= new Queue<Vector2Int>();
-    //    _queue.Clear();
-
-    //    visited[start.x * cols + start.y] = true;
-
-    //    _queue.Enqueue(start);
-
-    //    var group = new HashSet<Vector2Int>();
-    //    while (_queue.Count > 0)
-    //    {
-    //        var pos = _queue.Dequeue();
-    //        group.Add(pos);
-
-    //        for (var i = pos.x - 1; i <= pos.x + 1; i++)
-    //        {
-    //            for (var j = pos.y - 1; j <= pos.y + 1; j++)
-    //            {
-
-    //                if (i < 0 || i >= rows || j < 0 || j >= cols) continue;
-    //                if (visited[i * cols + j]) continue;
-    //                if (board[i, j] is null) continue;
-
-    //                if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
-    //                {
-    //                    visited[i * cols + j] = true;
-    //                    _queue.Enqueue(board[i, j].Value.GridPosition);
-    //                }
-    //            }
-    //        }
-    //    }
-    //    ArrayPool<bool>.Shared.Return(visited);
-    //    return group;
-    //}
 }
 
 

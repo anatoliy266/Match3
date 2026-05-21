@@ -97,6 +97,6 @@ public class TileController : MonoBehaviour
         transform.localScale = _scale;
         IsMoving = false;
         IsBonus = false;
-        GridPosition = new Vector2Int(-1, -1);
+        //GridPosition = new Vector2Int(-1, -1);
     }
 }
