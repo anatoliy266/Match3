@@ -2,51 +2,42 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Pool;
+using static UnityEditor.PlayerSettings;
 using static UnityEngine.Rendering.DebugUI;
 
 [CreateAssetMenu(fileName = "RemoveState", menuName = "Scriptable Objects/RemoveState")]
-public class RemoveState : FieldState
+public class RemoveState : GameState
 {
-    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public Events Events;
+
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        machine.Field.ToPositionChache(positionsCache);
 
-        foreach (var match in context.Matches)
+
+        var matches = machine.Blackboard.CurrentMatches;
+        for (var i = 0; i < matches.Count; i++)
         {
-            _field.RemoveTiles(match.Positions);
-        }
-        
-        AnimateDestroy(context);
-
-        _fsm.Switch(StateEvent.DestroyTiles, context);
-    }
-
-    private void AnimateDestroy(TransitionContext context)
-    {
-        var destroyAnimList = new List<AnimationData>();
-
-        foreach (var group in context.Matches)
-        {
-            foreach (var tilePos in group.Positions)
+            var match = matches[i];
+            for (var j = 0; j < match.Positions.Count; j++)
             {
-                if (context.Snapshot[tilePos.x, tilePos.y]  is not null)
+                var id = match.Positions[j];
+                if (positionsCache.TryGetValue(id, out var pos))
                 {
-                    //var tile = _field.GetTileAt(tilePos);
-                    var tile = context.Snapshot[tilePos.x, tilePos.y].Value.Transform;
-
-                    var data = new AnimationData
-                    {
-                        Type = AnimationType.Destroy,
-                        Target = tile,
-                        Duration = 1.0f,
-                    };
-                    destroyAnimList.Add(data);
+                    //todo как будто не хватает очистки словаря на всякий случай
+                    machine.Field.ClearTileAt(pos);
                 }
             }
         }
 
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, destroyAnimList);
+        var name = Events.GetBusName(GameEvent.Animation);
+        var snapshot = machine.Field.ToSnapshot();
+        GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+
+        machine.Switch(StateEvent.DestroyTiles);
     }
 }

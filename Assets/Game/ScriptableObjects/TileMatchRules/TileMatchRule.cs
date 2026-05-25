@@ -1,10 +1,18 @@
-﻿using NUnit.Framework;
-using System;
-using Unity.VisualScripting;
-using UnityEngine;
-using static TileController;
+﻿using UnityEngine;
 
-public abstract class TileMatchRuleBase: ScriptableObject
+public readonly struct TileSnapshot
 {
-    public abstract bool IsMatch(TileController.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target);
+    public readonly Vector2Int Position;
+    public readonly TileKind Kind;
+
+    public TileSnapshot(Vector2Int position, TileKind kind)
+    {
+        Position = position;
+        Kind = kind;
+    }
+}
+
+public abstract class TileMatchRuleBase : ScriptableObject
+{
+    public abstract bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target);
 }

@@ -1,101 +1,197 @@
 using PrimeTween;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using TMPro;
 using UnityEngine;
-using UnityEngine.Pool;
-using UnityEngine.Rendering;
-using static UnityEditor.PlayerSettings;
-using static UnityEngine.GraphicsBuffer;
+using UnityEngine.Timeline;
 
-
-public enum AnimationType
+public enum AnimateAction
 {
     Spawn,
-    SpawnAtPoint,
     Move,
-    Destroy,
-    Wiggle
+    Destroy
 }
 
+public struct AnimationBatch
+{
+    public LogicalTile?[,] Data;
+}
 public struct AnimationData
 {
-    public AnimationType Type;
-    public Transform Target;
-    public Vector3 TargetPosition;
-    public float Duration;
+    public Guid Id;
+    public TileKind Kind;
+    public Vector2Int From;
+    public Vector2Int To;
+    public AnimateAction Action;
 }
-public  class AnimationManager : MonoBehaviour
-{
-    public float AnimDuration;
-    public float AnimSpeed;
 
+
+public class AnimationManager : MonoBehaviour
+{
+    [Req] public FieldView View;
     [Req] public Events Events;
 
-    private Queue<List<AnimationData>> _queue = new Queue<List<AnimationData>>();
-    private Sequence _currentSequence;
+    private Queue<LogicalTile?[,]> _queue = new Queue<LogicalTile?[,]>();
+    private bool _isPlaying;
 
-    private void Awake()
+    private LogicalTile?[,] _prevSnapshot;
+    
+
+    public void Initialize(LogicalTile?[,] snapshot) => _prevSnapshot = snapshot;
+
+
+    private void OnEnable()
     {
-        var evname = Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Register(evname, OnAnimationRequested);
+        var name = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<LogicalTile?[,]>.Register(name, OnPackageReceived);
     }
 
-    private void OnAnimationRequested(List<AnimationData> data)
+    private void OnDisable()
     {
-        _queue.Enqueue(data);
-        if (!_currentSequence.isAlive)
+        var name = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<LogicalTile?[,]>.Unregister(name, OnPackageReceived);
+    }
+
+    private void OnPackageReceived(LogicalTile?[,] field)
+    {
+        _queue.Enqueue(field);
+        if (_isPlaying) return;
+
+        PlayNext();
+    }
+
+    private List<AnimationData> MatchField(LogicalTile?[,] snapshot)
+    {
+        var animData = new List<AnimationData>();
+
+        var dict = new Dictionary<Guid, Vector2Int>();
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+        for (var i = 0; i < r; i++)
         {
-            PlayNext();
+            for (var j = 0; j < c; j++)
+            {
+                var item = _prevSnapshot[i, j];
+                if (item is null) continue;
+                var pos = new Vector2Int(i, j);
+                dict[item.Value.Id] = new Vector2Int(i, j);
+            }
         }
+
+
+        for (var i = 0; i < r; i++)
+        {
+            for (var j = 0; j < c; j++)
+            {
+                var item = snapshot[i, j];
+                if (item is null) continue;
+                var pos = new Vector2Int(i, j);
+                if (dict.TryGetValue(item.Value.Id, out var p))
+                {
+                    //если позиция не поменялась - скип
+                    if (p == pos) dict.Remove(item.Value.Id);
+                    else
+                    {
+                        //если поменялась создаем обьект
+                        var anim = new AnimationData
+                        {
+                            Id = item.Value.Id,
+                            Kind = item.Value.Type,
+                            From = p,
+                            To = pos,
+                            Action = AnimateAction.Move,
+                        };
+                        animData.Add(anim);
+
+                        dict.Remove(item.Value.Id);
+                    }
+                }
+                else
+                {
+                    var from = new Vector2Int(r+1, pos.y);
+                    //спавн новых, те что были в новом снимке и отсутствовали в старом
+                    var data = new AnimationData
+                    {
+                        Id = item.Value.Id,
+                        Kind = item.Value.Type,
+                        From = from,
+                        To = pos,
+                        Action = AnimateAction.Spawn
+                    };
+                    animData.Add(data);
+                }
+            }
+        }
+        //те что остались - на удаление
+        foreach (var kvp in dict)
+        {
+            var data = new AnimationData
+            {
+                Id = kvp.Key,
+                From = kvp.Value,
+                Action = AnimateAction.Destroy,
+            };
+            animData.Add(data);
+        }
+
+        return animData;
     }
 
+    //todo: разделить както чтобы падало по 1 линии типа за раз
     private void PlayNext()
     {
-        if (_queue.Count == 0) return;
-        var data = _queue.Dequeue();
-        _currentSequence = Sequence.Create();
-
-        foreach (var animation in data)
+        if (_queue.Count == 0)
         {
-            if (!animation.Target.gameObject.activeSelf) { continue; }
-            switch (animation.Type)
+            _isPlaying = false;
+            var name = Events.GetBusName(GameEvent.Animation);
+            GameplayEventBus<bool>.Trigger(name, true);
+            return;
+        }
+        _isPlaying = true;
+
+        var snapshot = _queue.Dequeue();
+        var sequence = Sequence.Create();
+
+        var data = MatchField(snapshot);
+
+
+        foreach (var item in data)
+        {
+            switch (item.Action)
             {
-                case AnimationType.Spawn:
+                case AnimateAction.Spawn:
+                    sequence.Chain(Spawn(item));
                     break;
-                case AnimationType.SpawnAtPoint:
-                    var spawnAtTween = Tween.Scale(animation.Target, Vector3.zero, animation.Target.localScale, animation.Duration);
-                    _currentSequence.Group(spawnAtTween);
+                case AnimateAction.Move:
+                    sequence.Chain(Move(item));
                     break;
-                case AnimationType.Destroy:
-                    var destroyTween = Tween.Scale(animation.Target, 0.0f, animation.Duration).OnComplete(() => {
-                        var tile = animation.Target.GetComponent<TileController>();
-                        ObjectPool.SharedInstance.ReturnObject(tile);
-                    });
-                    _currentSequence.Group(destroyTween);
-                    break;
-
-                case AnimationType.Move:
-                    var moveTween = Tween.Position(animation.Target, animation.TargetPosition, animation.Duration);
-                    _currentSequence.Group(moveTween);
-                    break;
-
-                case AnimationType.Wiggle:
+                case AnimateAction.Destroy:
+                    sequence.Chain(Destroy(item));
                     break;
             }
         }
-        _currentSequence.OnComplete(this, target => target.PlayNext());
+
+        
+        sequence.OnComplete(() => PlayNext());
     }
 
-
-
-    private void OnDestroy()
+    private Tween Move(AnimationData dataItem)
     {
-        var evname = Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Unregister(evname, OnAnimationRequested);
+        return Tween.Position(View.GetVisualTileAt(dataItem.Id).transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f);
+    }
+
+    private Tween Spawn(AnimationData dataItem)
+    {
+        var target = View.CreateVisualTile(dataItem.Id, dataItem.Kind, dataItem.From);
+        return Tween.Scale(target.transform, 0.0f, 1.0f, 1.0f);
+    }
+
+    private Tween Destroy(AnimationData dataItem)
+    {
+        var target = View.GetVisualTileAt(dataItem.Id);
+
+        return Tween.Scale(target.transform, 1.0f, 0.0f, 1.0f).OnComplete(() =>
+        {
+            View.ClearVisualTile(dataItem.Id);
+        });
     }
 }

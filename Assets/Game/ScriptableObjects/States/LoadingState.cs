@@ -1,57 +1,42 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
 using static UnityEngine.Rendering.DebugUI.Table;
 
 [CreateAssetMenu(fileName = "LoadingState", menuName = "Scriptable Objects/LoadingState")]
-public class LoadingState : FieldState
+public class LoadingState : GameState
 {
-
-    //Размер и форма поля(например, сетка 8х8, или поле с вырезами / «дырами»).
-    //Геометрия ячеек(наличие стен, заблокированных клеток, порталов).
-    //Пул фишек(какие цвета конфет/самоцветов разрешены на этом уровне).
-    //Цели уровня(набрать 1000 очков, уничтожить 20 клеток желе, опустить 3 ингредиента вниз).
-    //Лимиты(количество ходов или таймер).
-    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public Events Events;
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
-
-        var name = _fsm.Events.GetBusName(GameEvent.Input);
+        var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, false);
 
-        _field.FillEmptyTilesOnGrid(context.CascadeIteration);
 
-        AnimateLoading();
-
-        _fsm.Switch(StateEvent.FinishLoading, context);
-    }
-
-    private void AnimateLoading()
-    {
-        var animationDataList = new List<AnimationData>();
-        var bounds = _field.GetBounds();
+        var bounds = machine.Field.GetBounds();
 
         for (var i = 0; i < bounds.x; i++)
         {
             for (var j = 0; j < bounds.y; j++)
             {
-                var gridPos = new Vector2Int(i, j);
-                var tile = _field.GetTileAt(gridPos);
-                var targetWorldPosition = _field.GetWorldPos(tile.GridPosition);
-                //todo: var duration - тоже както надо рассчитывать, по разнице положений на поле, хз.
-
-                var data = new AnimationData
+                var tile = new LogicalTile
                 {
-                    Type = AnimationType.Move,
-                    Target = tile.transform,
-                    TargetPosition = targetWorldPosition,
-                    Duration = 1.0f
+                    Id = machine.Field.GenerateUniqueId(),
+                    //todo: сделать неслучайный спавн
+                    Type = TileKind.Regular((RegularType)UnityEngine.Random.Range(0,6))
                 };
-                animationDataList.Add(data);
+                _fsm.Field.SetTileAt(new Vector2Int(i, j), tile);
             }
         }
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
+
+        var animname = Events.GetBusName(GameEvent.Animation);
+        var snapshot = _fsm.Field.ToSnapshot();
+
+        
+
+        GameplayEventBus<LogicalTile?[,]>.Trigger(animname, snapshot);
+
+        _fsm.Switch(StateEvent.FinishLoading);
     }
 }

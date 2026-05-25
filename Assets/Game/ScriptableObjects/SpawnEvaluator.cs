@@ -3,82 +3,60 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Pool;
 
-[CreateAssetMenu(fileName = "SpawnEvaluator", menuName = "Scriptable Objects/SpawnEvaluator")]
+public struct SpawnInfo
+{
+    public TileKind Type;
+    public Vector2Int Position;
+}
+
+
 public class SpawnEvaluator : ScriptableObject
 {
-    [Req] public SpawnRules spawnRules;
-    [Req] public MatchRules matchRules;
-
     //выбор обычной фишки
     //надо както предиктивно считать какой тип выбрать чтобы не было бесконечных совпадений и доска "усложнялась" после каждой итерации
-    public TileType GetPredictedWeightedTile(TileController.Snapshot?[,] snapshot, Vector2Int pos, int iterationCnt)
+    public void Evaluate(LogicalTile?[,] snapshot, SpawnRules rules, List<SpawnInfo> spawns)
     {
-        var chance = GetMatchChance(iterationCnt);
-        var match = new bool[7];
-        for (var i = 1; i < 7; i++)
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+        for (var i = 0; i < r; i++)
         {
-            var typeForCheck = (TileType)i;
-            var original = snapshot[pos.x, pos.y];
-            if (original is null) return TileType.Neutral;
-
-            var hypothetical = original.Value.WithType(typeForCheck);
-            snapshot[pos.x, pos.y] = hypothetical;
-
-            var rule = matchRules.GetRule(typeForCheck);
-            if (rule is null) return TileType.Neutral;
-            //поменять в снепшоте ячейку на тип
-            var group = BFS.Run(snapshot, pos, rule.IsMatch);
-            match[i] = group.Count > 2;
-            //вернуть в снепшоте ячейку на старый тип
-            snapshot[pos.x, pos.y] = original;
-        }
-        //подкрутка, если попали в процент - берем рандомный создавший матч из списка, если не попал - то не создавший матч
-        var prediction = UnityEngine.Random.Range(0, 100);
-        bool isMatching = false;
-        if (prediction < chance) isMatching = true;
-
-        var tile = TileType.Neutral;
-        if (isMatching) {
-            var i = 1;
-            for (var m = 1; m < 7; m++)
+            for (var j = 0; j < c; j++)
             {
-                if (!match[m]) continue;
-                var predict = UnityEngine.Random.Range(0,i++);
-                if (predict == 0) tile = (TileType)m;
-            }
-        } else
-        {
-            var i = 1;
-            for (var m = 1; m < 7; m++)
-            {
-                if (match[m]) continue;
-                var predict = UnityEngine.Random.Range(0, i++);
-                if (predict == 0) tile = (TileType)m;
+                if (snapshot[i, j] is not null) continue;
+
+                // както по умному выбирает тип фишки для спавна по коммон правилу спавна
+                // в коммон правиле - что должно быть?
+                var type = RegularType.Yellow;
+
+                var spawn = new SpawnInfo
+                {
+                    Type = TileKind.Regular(type),
+                    Position = new Vector2Int(i, j)
+                };
+                spawns.Add(spawn);
             }
         }
-
-        return tile;
-    }
-
-    //выбор бонусной фишки
-    //сравниваем группу с правилами, если совпало - ворзвращаем тип
-    public TileType GetMatchedBonusTile(IEnumerable<Vector2Int> group)
-    {
-        for (var i = 7; i < 10; i++)
-        {
-            var rule = spawnRules.GetRule((TileType)i);
-            if (rule.IsMatch(group)) return rule.Type;
-        }
-        return TileType.Neutral;
     }
 
 
-    //подкрутка
-    //подкрутка шанса на то что спавнящаяся фишка создаст матч. уменьшаться както должно с каждым каскадом
-
-    public float GetMatchChance(int iterationCnt)
+    public void EvaluateBonusSpawn(SpawnRules spawnRules, List<Vector2Int> group, Vector2Int targetSpawnPos, List<SpawnInfo> spawns)
     {
-        return (float) 1 / (float) iterationCnt * 100;
+        //ищем правила по размеру группы
+        var rules = spawnRules.GetRules(group.Count);
+
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (rules[i] is not null && rules[i].IsMatch(group))
+            {
+                var spawnInfo = new SpawnInfo
+                {
+                    Type = TileKind.Bonus(rules[i].BonusType),
+                    Position = targetSpawnPos
+                };
+                spawns.Add(spawnInfo);
+            }
+        }
+
     }
 }

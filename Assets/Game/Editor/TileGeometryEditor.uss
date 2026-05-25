@@ -13,3 +13,8 @@
 .grid-row {
     flex-direction: row;
 }
+
+.grid-cell--center {
+    border-width: 1px;
+    border-color: #FF9800; 
+}

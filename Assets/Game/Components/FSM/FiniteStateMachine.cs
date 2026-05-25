@@ -3,43 +3,36 @@ using UnityEngine;
 
 public class FiniteStateMachine : MonoBehaviour
 {
-    //[Tooltip("Ссылка на управляемый обьект поля")]
-    //[Req] public FieldController Field;
-
 
     [Tooltip("Состояния")]
     [Req] public FieldStates States;
     [Tooltip("Точка старта")]
-    [Req] public FieldState State;
+    [Req] public GameState State;
+    [Req] public Field Field;
 
-    [Req] public Events Events;
-
-
-    [Req] public FieldController _field;
+    public FieldBlackboard Blackboard {  get; set; }
+    public MatchEvaluator MatchEvaluator { get; set; }
+    public SpawnEvaluator SpawnEvaluator { get; set; }
     private void Awake()
     {
-        // Машина автоматически находит соседа-контроллера на этом же префабе
-        _field = GetComponent<FieldController>();
+        Field = GetComponent<Field>();
+        Blackboard = new FieldBlackboard();
+        MatchEvaluator = new MatchEvaluator();
+        SpawnEvaluator = new SpawnEvaluator();
     }
-
-    //public void Initialize(FieldController field)
-    //{
-    //    _field = field;
-    //}
-
 
     private void Start()
     {
-        if (State != null) State.Enter(_field, this, new TransitionContext { CascadeIteration = 1});
+        if (State != null) State.Enter(this);
     }
 
-    public void Switch(StateEvent e, TransitionContext context = default)
+    public void Switch(StateEvent e)
     {
         var nextState = States.GetTransition(State, e);
         if (nextState is not null)
         {
             State = nextState;
-            State.Enter(_field, this, context);
+            State.Enter(this);
         }
     }
 }

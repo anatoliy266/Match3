@@ -27,30 +27,38 @@ public class TileTypeData : ScriptableObject
 
     public Color Neutral => _neutral;
 
-    public Color GetColor(TileType type)
+    public Color GetColor(RegularType type)
     {
         return type switch
         {
-            TileType.Red => _red,
-            TileType.Green => _green,
-            TileType.Blue => _blue,
-            TileType.Yellow => _yellow,
-            TileType.Orange => _orange,
-            TileType.Purple => _purple,
-            TileType.Bomb => _black,
-            TileType.VerticalBomb => _gray,
-            TileType.HorizontalBomb => _coral,
+            RegularType.Red => _red,
+            RegularType.Green => _green,
+            RegularType.Blue => _blue,
+            RegularType.Yellow => _yellow,
+            RegularType.Orange => _orange,
+            RegularType.Purple => _purple,
             _ => _neutral
 
         };
     }
-    public int GetScore(TileType type) => type switch
-    {
-        TileType.Red or TileType.Green or TileType.Blue
-            or TileType.Yellow or TileType.Purple or TileType.Orange => 1,
-        TileType.Bomb => 9,
-        TileType.VerticalBomb or TileType.HorizontalBomb => 4,
-        _ => 0
-    };
 
+    public Color GetColor(BonusType type)
+    {
+        return type switch
+        {
+            BonusType.Bomb => _black,
+            BonusType.VerticalBomb => _gray,
+            BonusType.HorizontalBomb => _coral,
+            _ => _neutral
+
+        };
+    }
+
+    public Color GetColor(TileKind kind)
+    {
+        if (kind.KindType == TileKindType.Regular)
+            return GetColor(kind.RegularType);
+        else
+            return GetColor(kind.BonusType);
+    }
 }

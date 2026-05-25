@@ -8,7 +8,7 @@ using UnityEngine;
 public class FieldStateMapping
 {
     [Tooltip("Состояние")]
-    [Req]public FieldState State;
+    [Req]public GameState State;
 
     [Tooltip("Переходы")]
     public List<Transition> Transitions;
@@ -21,7 +21,7 @@ public class Transition
     [Req] public StateEvent Event;
 
     [Tooltip("Переход")]
-    [Req] public FieldState State;
+    [Req] public GameState State;
 }
 
 public enum StateEvent
@@ -34,7 +34,7 @@ public enum StateEvent
     NoMatches,
     MatchesFound,
     DestroyTiles,
-    CompactTiles,
+    FillUpTiles,
     FillEmptyTiles,
     HasMoves,
     NoMovesLeft,
@@ -50,7 +50,7 @@ public class FieldStates : ScriptableObject
     private List<FieldStateMapping> mappings;
 
     // Для быстрого доступа можно построить словарь в рантайме
-    private Dictionary<FieldState, Dictionary<StateEvent, FieldState>> _lookup;
+    private Dictionary<GameState, Dictionary<StateEvent, GameState>> _lookup;
 
     private void OnEnable()
     {
@@ -59,21 +59,21 @@ public class FieldStates : ScriptableObject
 
     private void BuildLookup()
     {
-        _lookup = new Dictionary<FieldState, Dictionary<StateEvent, FieldState>>();
+        _lookup = new Dictionary<GameState, Dictionary<StateEvent, GameState>>();
         if (mappings == null) return;
         foreach (var mapping in mappings)
         {
+            if (mapping?.State == null || mapping.Transitions == null || mapping.Transitions.Count == 0) continue;
             if (mapping.Transitions != null && mapping.Transitions.Count > 0)
                 _lookup[mapping.State] = mapping.Transitions.ToDictionary(v => v.Event, v => v.State);
         }
     }
 
 
-    public FieldState GetTransition(FieldState type, StateEvent e)
+    public GameState GetTransition(GameState type, StateEvent e)
     {
         if (_lookup == null) BuildLookup();
-        _lookup.TryGetValue(type, out var transitions);
-        transitions.TryGetValue(e, out var state);
-        return state;
+        if (_lookup.TryGetValue(type, out var transitions) && transitions.TryGetValue(e, out var state)) return state;
+        return null;
     }
 }

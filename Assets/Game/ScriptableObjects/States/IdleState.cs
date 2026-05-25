@@ -2,32 +2,41 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-[CreateAssetMenu(fileName = "IdleState", menuName = "Scriptable Objects/IdleState")]
-public class IdleState : FieldState
+public struct IdleTransitionData
 {
-    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public Vector2Int FromPos {  get; set; }
+    public Vector2Int FromStartPos { get; set; }
+    public Vector2Int ToPos { get; set; }
+    public Vector2Int ToStartPos { get; set; }
+}
+
+public struct SwapInfo
+{
+    public Guid SourceId {  get; set; }
+    public Guid DestId { get; set; }
+}
+
+
+[CreateAssetMenu(fileName = "IdleState", menuName = "Scriptable Objects/IdleState")]
+public class IdleState : GameState
+{
+    [Req] public Events Events;
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
-        var name = _fsm.Events.GetBusName(GameEvent.Input);
+        var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, true);
-        GameplayEventBus<TransitionContext>.Register(name, OnFieldEvent);
+        GameplayEventBus<SwapInfo>.Register(name, OnFieldEvent);
     }
 
-    public override void OnFieldEvent(TransitionContext eventData)
+    public void OnFieldEvent(SwapInfo eventData)
     {
-        
-        try
-        {
-            var name = _fsm.Events.GetBusName(GameEvent.Input);
-            GameplayEventBus<bool>.Trigger(name, false);
-            GameplayEventBus<TransitionContext>.Unregister(name, OnFieldEvent);
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Trigger(name, false);
+        GameplayEventBus<SwapInfo>.Unregister(name, OnFieldEvent);
 
-            _fsm.Switch(eventData.Type, eventData);
-        } catch (Exception e)
-        {
-            Debug.LogException(e);
-        }
-        
+
+        _fsm.Blackboard.SourceDest = eventData;
+
+        _fsm.Switch(StateEvent.MoveTiles);
     }
 }

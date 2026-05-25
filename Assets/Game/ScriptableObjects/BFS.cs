@@ -1,52 +1,80 @@
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
 
+public struct AlgoritmContext
+{
+    public LogicalTile?[,] Field;
+    public IReadOnlyList<TileMatchRuleBase> Rules;
+    public Queue<Vector2Int> Queue;
+    public bool[] Visited;
+}
+
+
+
 public static class BFS
 {
-    [ThreadStatic]
-    private static Queue<Vector2Int> _queue;
-    public static HashSet<Vector2Int> Run(TileController.Snapshot?[,] board,
-        Vector2Int start,
-        Func<TileController.Snapshot?[,], Vector2Int, Vector2Int, Vector2Int, bool> canConnect)
+    private static readonly Vector2Int[] Directions = {
+        Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
+    };
+
+    public static void Run(Vector2Int startPos, AlgoritmContext context, List<Guid> groupResult)
     {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+        // 1. Проверяем стартовую плитку
+        if (context.Field[startPos.x, startPos.y] is not LogicalTile startTile) return;
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-        Array.Clear(visited, 0, rows * cols);
+        if (context.Rules.Count == 0) return;
 
-        _queue ??= new Queue<Vector2Int>();
-        _queue.Clear();
+        int rows = context.Field.GetLength(0);
+        int cols = context.Field.GetLength(1);
 
-        visited[start.x * cols + start.y] = true;
+        // 2. Настраиваем старт
+        var sourceSnapshot = new TileSnapshot(startPos, startTile.Type);
+        context.Visited[startPos.x * cols + startPos.y] = true;
+        context.Queue.Enqueue(startPos);
+        groupResult.Add(startTile.Id);
 
-        _queue.Enqueue(start);
-
-        var group = new HashSet<Vector2Int>();
-        while (_queue.Count > 0)
+        // 3. Основной цикл волнового поиска
+        while (context.Queue.Count > 0)
         {
-            var pos = _queue.Dequeue();
-            group.Add(pos);
-
-            for (var i = pos.x - 1; i <= pos.x + 1; i++)
+            Vector2Int currentPos = context.Queue.Dequeue();
+            LogicalTile currentTile = context.Field[currentPos.x, currentPos.y].Value;
+            var currentSnapshot = new TileSnapshot(currentPos, currentTile.Type);
+            for (int d = 0; d < Directions.Length; d++)
             {
-                for (var j = pos.y - 1; j <= pos.y + 1; j++)
+                var dir = Directions[d];
+                Vector2Int targetPos = currentPos + dir;
+
+                // Проверка границ поля
+                if (targetPos.x < 0 || targetPos.x >= rows || targetPos.y < 0 || targetPos.y >= cols)
+                    continue;
+
+                // Проверка на посещение и существование плитки
+                if (context.Visited[targetPos.x * cols + targetPos.y] ||
+                    context.Field[targetPos.x, targetPos.y] is not LogicalTile targetTile)
+                    continue;
+
+                var targetSnapshot = new TileSnapshot(targetPos, targetTile.Type);
+
+                // Прогоняем соседа по правилам
+                bool isMatch = false;
+                for (int i = 0; i < context.Rules.Count; i++)
                 {
-
-                    if (i < 0 || i >= rows || j < 0 || j >= cols) continue;
-                    if (visited[i * cols + j]) continue;
-                    if (board[i, j] is null) continue;
-
-                    if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
+                    if (context.Rules[i].IsMatch(in sourceSnapshot, in currentSnapshot, in targetSnapshot))
                     {
-                        visited[i * cols + j] = true;
-                        _queue.Enqueue(board[i, j].Value.GridPosition);
+                        isMatch = true;
+                        break;
                     }
+                }
+
+                // Если подошел — забираем в группу
+                if (isMatch)
+                {
+                    context.Visited[targetPos.x * cols + targetPos.y] = true;
+                    context.Queue.Enqueue(targetPos);
+                    groupResult.Add(targetTile.Id);
                 }
             }
         }
-        ArrayPool<bool>.Shared.Return(visited);
-        return group;
     }
 }

@@ -1,14 +1,12 @@
 using System;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "TileVerticalBombMatchRule", menuName = "Rules/VerticalBomb")]
-[Serializable]
+[CreateAssetMenu(fileName = "TileVerticalBombMatchRule", menuName = "Rules/Vertical Bomb")]
 public class TileVerticalBombMatchRule : TileMatchRuleBase
 {
-    [SerializeField] private Vector2Int Axis = Vector2Int.down;
-
-    public override bool IsMatch(TileController.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    public override bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target)
     {
-        return target.x == source.x;
+        // Цель находится на той же вертикальной линии (в том же столбце), что и источник
+        return target.Position.x == source.Position.x;
     }
 }

@@ -1,0 +1,2681 @@
+==================================================== 
+Сборка C# кода от 23.05.2026  0:00:28,42 
+==================================================== 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Bus\GameplayEventBus.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public static class GameplayEventBus<T>
+{
+    private static readonly Dictionary<string, Action<T>> Events = new();
+
+    public static void Register(string eventName, Action<T> listener)
+    {
+        if (!Events.TryAdd(eventName, listener))
+        {
+            Events[eventName] += listener;
+        }
+    }
+
+    public static void Unregister(string eventName, Action<T> listener)
+    {
+        if (Events.ContainsKey(eventName))
+        {
+            Events[eventName] -= listener;
+            if (Events[eventName] == null)
+            {
+                Events.Remove(eventName);
+            }
+        }
+    }
+
+    public static void Trigger(string eventName, T data)
+    {
+        if (Events.TryGetValue(eventName, out var thisEvent))
+        {
+            thisEvent?.Invoke(data);
+        }
+    }
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\AnimationManager.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using PrimeTween;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum AnimateAction
+{
+    Spawn,
+    Move,
+    Destroy
+}
+
+public struct AnimationBatch
+{
+    public AnimateAction Action;
+    public List<AnimationData> Data;
+}
+public struct AnimationData
+{
+    public Guid Id;
+    public TileKind Kind;
+    public Vector2Int From;
+    public Vector2Int To;
+}
+
+
+public class AnimationManager : MonoBehaviour
+{
+    [Req] public FieldView View;
+    [Req] public Events Events;
+
+    private Queue<AnimationBatch> _queue = new Queue<AnimationBatch>();
+    private bool _isPlaying;
+
+    private void OnEnable()
+    {
+        var name = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<AnimationBatch>.Register(name, OnPackageReceived);
+    }
+
+    private void OnDisable()
+    {
+        var name = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<AnimationBatch>.Unregister(name, OnPackageReceived);
+    }
+
+    private void OnPackageReceived(AnimationBatch obj)
+    {
+        _queue.Enqueue(obj);
+        if (_isPlaying) return;
+
+        PlayNext();
+    }
+    //todo: разделить както чтобы падало по 1 линии типа за раз
+    private void PlayNext()
+    {
+        if (_queue.Count == 0)
+        {
+            _isPlaying = false;
+            var name = Events.GetBusName(GameEvent.Animation);
+            GameplayEventBus<bool>.Trigger(name, true);
+            return;
+        }
+        _isPlaying = true;
+
+        var batch = _queue.Dequeue();
+        var sequence = Sequence.Create();
+
+        switch (batch.Action)
+        {
+            case AnimateAction.Spawn:
+                sequence.Chain(Spawn(batch.Data));
+                break;
+            case AnimateAction.Move:
+                sequence.Chain(Move(batch.Data));
+                break;
+            case AnimateAction.Destroy:
+                sequence.Chain(Destroy(batch.Data));
+                break;
+        }
+        sequence.OnComplete(() => PlayNext());
+    }
+
+    private Sequence Move(List<AnimationData> data)
+    {
+        var seq = Sequence.Create();
+        foreach (var dataItem in data)
+        {
+            seq.Group(Tween.Position(View.GetVisualTileAt(dataItem.Id).transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f));
+        }
+        return seq;
+    }
+
+    private Sequence Spawn(List<AnimationData> data)
+    {
+        var seq = Sequence.Create();
+        foreach (var dataItem in data)
+        {
+            
+            var target = View.CreateVisualTile(dataItem.Id, dataItem.Kind, dataItem.From);
+            seq.Group(Tween.Scale(target.transform, 0.0f, 1.0f, 1.0f));
+        }
+        return seq;
+    }
+
+    private Sequence Destroy(List<AnimationData> data)
+    {
+        var seq = Sequence.Create();
+        foreach (var dataItem in data)
+        {
+            var target = View.GetVisualTileAt(dataItem.Id);
+
+            seq.Group(Tween.Scale(target.transform, 1.0f, 0.0f, 1.0f).OnComplete(() =>
+            {
+                View.ClearVisualTile(dataItem.Id);
+            }));
+        }
+        return seq;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\DragManager.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using Unity.InferenceEngine;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public class DragManager : MonoBehaviour
+{
+    [Header("Input Refs")]
+    [Req] public InputActionReference TrackingAction;
+    [Req] public InputActionReference ClickingAction;
+
+    [Header("Camera Ref")]
+    [Req] public Camera Camera;
+    [Req] public Events Events;
+
+    //public event Action<TransitionContext> OnDragCompleted;
+
+    private Vector3 _startPosition;
+    private Vector2Int _startGridPos;
+    private Tile _selectedTile;
+    private Vector3 _currentPos;
+    private Tile _selectedObject;
+    private Vector3 _offset;
+    private Plane _dragPlane;
+    private bool _isBusy = false;
+
+
+
+    private void OnEnable()
+    {
+        TrackingAction.action.performed += OnTouchPosition;
+        ClickingAction.action.performed += OnTouchPress;
+        ClickingAction.action.canceled += OnTouchRelease;
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Register(name, OnInputEventReceived);
+    }
+
+    private void OnInputEventReceived(bool enable)
+    {
+        Debug.Log("inputsystem switch event called");
+        if (enable)
+        {
+            TrackingAction.action.Enable();
+            ClickingAction.action.Enable();
+        }
+        else
+        {
+            TrackingAction.action.Disable();
+            ClickingAction.action.Disable();
+        }
+    }
+
+    private void OnDisable()
+    {
+        TrackingAction.action.performed -= OnTouchPosition;
+        ClickingAction.action.performed -= OnTouchPress;
+        ClickingAction.action.canceled -= OnTouchRelease;
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Unregister(name, OnInputEventReceived);
+
+
+    }
+
+    private void OnTouchPress(InputAction.CallbackContext context)
+    {
+        if (_isBusy) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+        _currentPos = Pointer.current.position.ReadValue();
+
+        Vector3 worldPoint = cam.ScreenToWorldPoint(new Vector3(_currentPos.x, _currentPos.y, Mathf.Abs(cam.transform.position.z)));
+        RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
+
+        if (hit.collider != null)
+        {
+            if (hit.transform.TryGetComponent<Tile>(out var tile))
+            {
+                _selectedObject = tile;
+                _startPosition = tile.transform.position;
+                _startGridPos = tile.GridPosition;
+                Vector3 hitPoint2D = new Vector3(hit.point.x, hit.point.y, _startPosition.z);
+                _offset = _startPosition - hitPoint2D;
+                _selectedObject.gameObject.layer = 2;
+            }
+        }
+    }
+
+    private void OnTouchRelease(InputAction.CallbackContext context)
+    {
+        Debug.Log(_selectedObject is null);
+        if (_selectedObject is not null)
+        {
+            Vector3 rayOrigin = _selectedObject.transform.position;
+            rayOrigin.z = Camera.transform.position.z;
+            Ray ray = new Ray(rayOrigin, Camera.transform.forward);
+
+            var hit = Physics2D.GetRayIntersection(ray);
+            if (hit.collider != null && hit.transform != _selectedObject)
+            {
+                var to = hit.transform.GetComponent<Tile>();
+                var ctx = new TransitionContext
+                {
+                    Type = StateEvent.MoveTiles,
+                    From = _selectedObject,
+                    To = to,
+                    PositionFrom = _startGridPos,
+                    PositionTo = to.GridPosition
+                };
+
+                var name = Events.GetBusName(GameEvent.Input);
+                GameplayEventBus<TransitionContext>.Trigger(name, ctx);
+            }
+            else
+            {
+                _selectedObject.transform.position = _startPosition;
+            }
+            _selectedObject.gameObject.layer = 0;
+        }
+
+        _selectedObject = null;
+    }
+
+    private void OnTouchPosition(InputAction.CallbackContext context)
+    {
+        _currentPos = context.ReadValue<Vector2>();
+
+        if (_selectedObject is not null)
+        {
+            Camera cam = Camera.main;
+            if (cam == null) return;
+
+            Vector3 worldPoint = cam.ScreenToWorldPoint(new Vector3(_currentPos.x, _currentPos.y, Mathf.Abs(cam.transform.position.z)));
+
+            Vector3 targetPos = worldPoint + _offset;
+
+            Vector3 heading = targetPos - _startPosition;
+
+            if (Mathf.Abs(heading.x) > Mathf.Abs(heading.y))
+            {
+                heading.y = 0;
+                heading.x = Mathf.Clamp(heading.x, -1f, 1f);
+            }
+            else
+            {
+                heading.x = 0;
+                heading.y = Mathf.Clamp(heading.y, -1f, 1f);
+            }
+
+            _selectedObject.transform.position = new Vector3(
+                _startPosition.x + heading.x,
+                _startPosition.y + heading.y,
+                _startPosition.z
+            );
+        }
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\Field.cs] - Файл №!COUNT! 
+---------------------------------------- 
+
+
+using System;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.Pool;
+
+using static UnityEngine.Rendering.DebugUI;
+
+public struct LogicalTile
+{
+    public Guid Id {  get; set; }
+    public TileKind Type { get; set; }
+}
+
+public class Field : MonoBehaviour
+{
+    private int _rows = 1;
+    private int _cols = 1;
+
+    private LogicalTile?[,] _logicalTiles;
+
+    public void Initialize(LevelSettings data)
+    {
+        _rows = data.Rows;
+        _cols = data.Columns;
+        _logicalTiles = new LogicalTile?[_rows, _cols];
+    }
+
+
+    public LogicalTile?[,] ToSnapshot()
+    {
+        var board = new LogicalTile?[_rows, _cols];
+        for (var r = 0; r < _rows; r++)
+            for (var c = 0; c < _cols; c++)
+                board[r, c] = _logicalTiles[r, c];
+        return board;
+    }
+
+    public Vector2Int GetBounds() => new Vector2Int(_rows, _cols);
+
+
+    public bool IsInBounds(Vector2Int pos)
+    {
+        return pos.x >= 0 && pos.x < _rows && pos.y >= 0 && pos.y < _cols;
+    }
+
+
+    public LogicalTile? GetTileAt(Vector2Int pos)
+    {
+        return _logicalTiles[pos.x, pos.y];
+    }
+
+
+    public void SetTileAt(Vector2Int pos, LogicalTile? tile)
+    {
+        _logicalTiles[pos.x, pos.y] = tile;
+    }
+
+
+    public void ClearTileAt(Vector2Int pos)
+    {
+        _logicalTiles[pos.x, pos.y] = null;
+    }
+
+    public Guid GenerateUniqueId()
+    {
+        return Guid.NewGuid();
+    }
+
+    public Vector3 GetWorldPos(int row, int col)
+    {
+        return new Vector3(col - _cols / 2, row - _rows / 2, 0);
+    }
+
+    public Vector3 GetWorldPos(Vector2Int v)
+    {
+        return new Vector3(v.y - _cols / 2, v.x - _rows / 2, 0);
+    }
+}
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\FieldView.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Pool;
+using static UnityEditor.PlayerSettings;
+using static UnityEngine.InputManagerEntry;
+
+public class FieldView : MonoBehaviour
+{
+    [Req] public Tile Tile;
+
+
+    private int _rows;
+    private int _cols;
+
+    private ObjectPool<Tile> _pool;
+    private Tile?[] _visualTiles;
+
+
+    public void Initialize(LevelSettings data)
+    {
+        _rows = data.Rows;
+        _cols = data.Columns;
+        _visualTiles = new Tile[_rows * _cols];
+        _pool = new ObjectPool<Tile>(
+            () => Instantiate(Tile),
+            (tile) => tile.gameObject.SetActive(true),
+            (tile) => tile.gameObject.SetActive(false),
+            (tile) => Destroy(tile.gameObject),
+            true, 100, 1000
+        );
+    }
+
+
+    public Tile? GetVisualTileAt(Guid id)
+    {
+        for (var i = 0; i < _visualTiles.Length; i++)
+        {
+            if (_visualTiles[i].Id == id) return _visualTiles[i];
+        }
+        return null;
+    }
+
+
+    public Tile CreateVisualTile(Guid id, TileKind type, Vector2Int pos)
+    {
+        var tile = _pool.Get();
+        tile.Id = id;
+        tile.SetType(type);
+        tile.transform.position = GetWorldPos(pos);
+        _visualTiles[pos.x * _cols + pos.y] = tile;
+        return tile;
+    }
+
+
+    public void ClearVisualTile(Guid id)
+    {
+        for (var i = 0; i < _visualTiles.Length; i++)
+        {
+            if (id == _visualTiles[i].Id)
+            {
+                _pool.Release(_visualTiles[i]);
+                _visualTiles[i] = null;
+            }
+        }
+    }
+
+    public Vector3 GetWorldPos(Vector2Int v)
+    {
+        return new Vector3(v.y - _cols / 2, v.x - _rows / 2, 0);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\LevelController.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using UnityEngine;
+
+//Размер и форма поля(например, сетка 8х8, или поле с вырезами / «дырами»).
+//Геометрия ячеек(наличие стен, заблокированных клеток, порталов).
+//Пул фишек(какие цвета конфет/самоцветов разрешены на этом уровне).
+//Цели уровня(набрать 1000 очков, уничтожить 20 клеток желе, опустить 3 ингредиента вниз).
+//Лимиты(количество ходов или таймер).
+
+
+public class LevelController : MonoBehaviour
+{
+    [Header("Prefabs")]
+    [SerializeField] private Field fieldPrefab;
+
+    [Header("Level Data Storage")]
+    [SerializeField] private List<LevelSettings> allLevels;
+
+    private Field _currentFieldInstance;
+
+    private void Start()
+    {
+        StartLevel(1);
+    }
+
+    /// <summary>
+    /// Метод для запуска уровня по его номеру
+    /// </summary>
+    public void StartLevel(int levelNumber)
+    {
+        LevelSettings data = allLevels.Find(l => l.levelNumber == levelNumber);
+
+        if (data == null)
+        {
+            Debug.LogError($"[LevelManager] Данные для уровня {levelNumber} не найдены!");
+            return;
+        }
+        if (_currentFieldInstance != null)
+        {
+            Destroy(_currentFieldInstance.gameObject);
+        }
+        _currentFieldInstance = Instantiate(fieldPrefab, Vector3.zero, Quaternion.identity);
+        _currentFieldInstance.Initialize(data);
+
+        Debug.Log($"[LevelManager] Уровень {levelNumber} успешно запущен!");
+    }
+}
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\ObjectPool.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Pool;
+
+public class ObjectPool : MonoBehaviour
+{
+    public static ObjectPool SharedInstance;
+    private Queue<Tile> _pool;
+    public Tile Prefab;
+    public int amountToPool;
+
+    void Awake()
+    {
+        if (SharedInstance != null && SharedInstance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        SharedInstance = this;
+
+        _pool = new Queue<Tile>();
+    }
+    void Start()
+    {
+        for (int i = 0; i < amountToPool; i++)
+        {
+            CreateNewInstance(false);
+        }
+    }
+
+    public Tile GetObject() 
+    {
+        if (_pool.Count > 0)
+        {
+            var obj = _pool.Dequeue();
+            obj.gameObject.SetActive(true);
+            return obj;
+        }
+        return CreateNewInstance(true);
+    }
+
+    public void ReturnObject(Tile tile)
+    {
+        tile.Reset();
+        tile.gameObject.SetActive(false);
+        _pool.Enqueue(tile);
+    }
+
+    
+
+    private Tile CreateNewInstance(bool activate = false)
+    {
+        var instance = Instantiate(Prefab, transform);
+        instance.gameObject.SetActive(activate);
+
+        if (!activate)
+        {
+            _pool.Enqueue(instance);
+        }
+
+        return instance;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\ScoreManager.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using NUnit.Framework;
+using System;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.SocialPlatforms.Impl;
+using UnityEngine.UI;
+using static UnityEngine.Rendering.DebugUI;
+
+public class ScoreManager : MonoBehaviour
+{
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    public TextMeshProUGUI Score;
+    public ScoreData ScoreData;
+
+    
+
+    public void AddScore(int score)
+    {
+        
+    }
+
+    internal void CalculateScore(List<MatchInfo> matches, int cascadeIteration)
+    {
+        foreach (var match in matches)
+        {
+            ScoreData.AddScore(1 * cascadeIteration);
+        }
+        
+        Score.text = $"SCORE: {ScoreData.Score}";
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\Tile.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+public class Tile : MonoBehaviour
+{
+    public TileKind Type;
+    public bool IsBonus;
+    public Guid Id;
+
+    [SerializeField] private TileTypeData _tileType;
+    private SpriteRenderer _spriteRenderer;
+
+    private void Awake()
+    {
+        _spriteRenderer = GetComponent<SpriteRenderer>();
+    }
+
+    public void SetType(TileKind type)
+    {
+        Type = type;
+        _spriteRenderer.color = _tileType.GetColor(type);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\TileType.cs] - Файл №!COUNT! 
+---------------------------------------- 
+﻿using UnityEngine;
+
+public enum TileType { Red, Green, Blue, Yellow, Orange, Purple }
+public enum BonusType { Bomb, VerticalBomb, HorizontalBomb, ColorBomb }
+public enum TileKindType { Regular, Bonus }
+
+public struct TileKind
+{
+    public TileKindType KindType;
+    public TileType RegularType;
+    public BonusType BonusType;
+    public TileType? TargetColor;
+
+    public static TileKind Regular(TileType type) => new TileKind
+    {
+        KindType = TileKindType.Regular,
+        RegularType = type
+    };
+
+    public static TileKind Bonus(BonusType type, TileType? target = null) => new TileKind
+    {
+        KindType = TileKindType.Bonus,
+        BonusType = type,
+        TargetColor = target
+    };
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\TileTypeChances.cs] - Файл №!COUNT! 
+---------------------------------------- 
+﻿using UnityEngine;
+using System.Collections;
+using System;
+
+namespace Assets.Game.Components
+{
+	[Serializable]
+	public class TileSpawnChance 
+	{
+		public TileType Type;
+		public float SpawnChance;
+		public float currentChance;
+	}
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\FSM\BlackBoard.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using UnityEngine;
+
+public class FieldBlackboard
+{
+    // ==========================================
+    // 1. ДАННЫЕ ДЛЯ СВАПА (Записывает IdleState, читает SwapState)
+    // ==========================================
+    public Vector2Int SwapFrom { get; set; }
+    public Vector2Int SwapTo { get; set; }
+
+
+    // ==========================================
+    // 2. ДАННЫЕ ДЛЯ МАТЧЕЙ (Записывает MatchState, читает DestroyState)
+    // ==========================================
+    public List<MatchInfo> CurrentMatches { get; set; }
+
+
+    // ==========================================
+    // 3. СОСТОЯНИЕ ТЕКУЩЕГО ХОДА И ИГРЫ
+    // ==========================================
+    // Номер каскада падений (0 - первый свап, 1 - первый обвал, 2 - комбо и т.д.)
+    public int CascadeIteration { get; set; }
+
+    // Флаг для проверки окончания игры (Game Over)
+    public bool HasAvailableMoves { get; set; }
+
+    // Данные для подсказки игроку
+    public HintInfo CurrentHint { get; set; }
+
+
+    // ==========================================
+    // МЕТОД СБРОСА (Вызывается при переходе в IdleState в конце хода)
+    // ==========================================
+    public void Reset()
+    {
+        // Сбрасываем координаты в дефолтные невалидные значения
+        SwapFrom = new Vector2Int(-1, -1);
+        SwapTo = new Vector2Int(-1, -1);
+
+        // Очищаем список матчей, чтобы не держать ссылки в памяти
+        CurrentMatches?.Clear();
+        CurrentMatches = null;
+
+        // Сбрасываем счетчик комбо
+        CascadeIteration = 0;
+    }
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\FSM\FiniteStateMachine.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using Mono.Cecil.Cil;
+using UnityEngine;
+
+public class FiniteStateMachine : MonoBehaviour
+{
+
+    [Tooltip("Состояния")]
+    [Req] public FieldStates States;
+    [Tooltip("Точка старта")]
+    [Req] public GameState State;
+
+    [Req] public Events Events;
+
+
+    [Req] public Field Field;
+
+    public FieldBlackboard Blackboard {  get; set; }
+    private void Awake()
+    {
+        Field = GetComponent<Field>();
+        Blackboard = new FieldBlackboard();
+    }
+
+    private void Start()
+    {
+        if (State != null) State.Enter(this);
+    }
+
+    public void Switch(StateEvent e)
+    {
+        var nextState = States.GetTransition(State, e);
+        if (nextState is not null)
+        {
+            State = nextState;
+            State.Enter(this);
+        }
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Drawers\MissingPropertyDrawer.cs] - Файл №!COUNT! 
+---------------------------------------- 
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEngine;
+
+public class Req : PropertyAttribute { }
+
+[CustomPropertyDrawer(typeof(Req))]
+public class ReqDrawer : PropertyDrawer
+{
+    public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+    {
+        // Проверяем, задано ли значение (не равно default)
+        bool isMissing = IsValueMissing(property);
+
+        // Если значение не задано — красим фон красным
+        Color defaultBg = GUI.backgroundColor;
+        if (isMissing)
+            GUI.backgroundColor = new Color(1f, 0.3f, 0.3f); // мягкий красный
+
+        // Отрисовываем стандартное поле
+        EditorGUI.PropertyField(position, property, label, true);
+
+        // Возвращаем исходный цвет фона
+        GUI.backgroundColor = defaultBg;
+    }
+
+    private bool IsValueMissing(SerializedProperty property)
+    {
+        // Массив считается незаполненным, если пуст
+        if (property.isArray && property.arraySize == 0)
+            return true;
+
+        switch (property.propertyType)
+        {
+            case SerializedPropertyType.String:
+                return string.IsNullOrEmpty(property.stringValue);
+
+            case SerializedPropertyType.ObjectReference:
+                return property.objectReferenceValue == null;
+
+            case SerializedPropertyType.Integer:
+                return property.intValue == 0;
+
+            case SerializedPropertyType.Float:
+                return Mathf.Approximately(property.floatValue, 0f);
+
+            case SerializedPropertyType.Boolean:
+                return property.boolValue == false;
+
+            // Для структур (Vector3, Color и т.п.) — сравниваем с default
+            default:
+                // boxedValue работает для любых типов, кроме массивов и объектов
+                if (property.propertyType == SerializedPropertyType.Generic)
+                {
+                    // Для вложенных объектов не проверяем через boxedValue,
+                    // но можно было бы пройти по всем дочерним полям — здесь пропускаем
+                    return false;
+                }
+                var value = property.boxedValue;
+                if (value == null)
+                    return false; // не должно случиться для value-типов
+                var type = value.GetType();
+                if (type.IsValueType)
+                {
+                    var defaultValue = System.Activator.CreateInstance(type);
+                    return value.Equals(defaultValue);
+                }
+                return false;
+        }
+    }
+}
+#endif 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Editor\TileGeometryEditor.cs] - Файл №!COUNT! 
+---------------------------------------- 
+//using UnityEditor;
+//using UnityEngine;
+//using UnityEngine.UIElements;
+
+//public class TileGeometryEditor : EditorWindow
+//{
+//    [SerializeField]
+//    private VisualTreeAsset m_VisualTreeAsset = default;
+
+//    [MenuItem("Window/UI Toolkit/TileGeometryEditor")]
+//    public static void ShowExample()
+//    {
+//        TileGeometryEditor wnd = GetWindow<TileGeometryEditor>();
+//        wnd.titleContent = new GUIContent("TileGeometryEditor");
+//    }
+
+//    public void CreateGUI()
+//    {
+//        // Each editor window contains a root VisualElement object
+//        VisualElement root = rootVisualElement;
+
+//        // VisualElements objects can contain other VisualElement following a tree hierarchy.
+//        VisualElement label = new Label("Hello World! From C#");
+//        root.Add(label);
+
+//        // Instantiate UXML
+//        VisualElement labelFromUXML = m_VisualTreeAsset.Instantiate();
+//        root.Add(labelFromUXML);
+//    }
+//}
+using UnityEditor;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+public class TileGeometryEditor : EditorWindow
+{
+    [SerializeField]
+    private VisualTreeAsset m_VisualTreeAsset; // Перетащи сюда UXML
+
+    private ObjectField TileSpawnRuleField;
+    private Vector2IntField gridSizeField;
+    private Button clearButton;
+    private VisualElement gridContainer;
+    private Label infoLabel;
+
+    private TileSpawnRuleBase currentShape; // Текущий редактируемый ассет
+
+    private const int CellSize = 24;
+    private const int CellMargin = 2;
+
+    [MenuItem("Window/UI Toolkit/TileGeometryEditor")]
+    public static void ShowExample()
+    {
+        TileGeometryEditor wnd = GetWindow<TileGeometryEditor>();
+        wnd.titleContent = new GUIContent("Tile Geometry Editor");
+    }
+
+    public void CreateGUI()
+    {
+        // Загружаем UXML
+        VisualElement root = rootVisualElement;
+        m_VisualTreeAsset.CloneTree(root);
+
+        // Стили
+        var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/Game/Editor/TileGeometryEditor.uss");
+        if (styleSheet != null)
+            root.styleSheets.Add(styleSheet);
+        else
+            Debug.LogError("USS not found at path!");
+
+        // Находим элементы
+        TileSpawnRuleField = root.Q<ObjectField>("bonusShapeField");
+        gridSizeField = root.Q<Vector2IntField>("gridSizeField");
+        clearButton = root.Q<Button>("clearButton");
+        gridContainer = root.Q<VisualElement>("gridContainer");
+        infoLabel = root.Q<Label>("infoLabel");
+
+        // Подписки
+        TileSpawnRuleField.RegisterValueChangedCallback(OnBonusShapeChanged);
+        gridSizeField.RegisterValueChangedCallback(OnGridSizeChanged);
+        clearButton.clicked += OnClearClicked;
+
+        // Если окно открыто с уже выбранным ассетом (можно задать извне)
+        if (currentShape != null)
+        {
+            TileSpawnRuleField.value = currentShape;
+            RefreshAll();
+        }
+    }
+
+    private void OnBonusShapeChanged(ChangeEvent<Object> evt)
+    {
+        currentShape = evt.newValue as TileSpawnRuleBase;
+        if (currentShape != null)
+        {
+            // Обновляем поле gridSize из ассета
+            gridSizeField.SetValueWithoutNotify(currentShape.gridSize);
+        }
+        RefreshGrid();
+    }
+
+    private void OnGridSizeChanged(ChangeEvent<Vector2Int> evt)
+    {
+        if (currentShape == null) return;
+
+        Undo.RecordObject(currentShape, "Change Grid Size");
+        currentShape.gridSize = evt.newValue;
+        // Удаляем клетки за пределами
+        currentShape.activeCells.RemoveAll(c =>
+            c.x < 0 || c.x >= currentShape.gridSize.x ||
+            c.y < 0 || c.y >= currentShape.gridSize.y);
+        EditorUtility.SetDirty(currentShape);
+        RefreshGrid();
+    }
+
+    private void OnClearClicked()
+    {
+        if (currentShape == null) return;
+        Undo.RecordObject(currentShape, "Clear Cells");
+        currentShape.activeCells.Clear();
+        EditorUtility.SetDirty(currentShape);
+        RefreshGrid();
+    }
+
+    /// <summary>
+    /// Полная перестройка интерфейса при смене ассета
+    /// </summary>
+    private void RefreshAll()
+    {
+        if (currentShape == null)
+        {
+            gridSizeField.SetValueWithoutNotify(Vector2Int.one);
+            gridContainer.Clear();
+            infoLabel.text = "No shape selected";
+            return;
+        }
+        gridSizeField.SetValueWithoutNotify(currentShape.gridSize);
+        RefreshGrid();
+    }
+
+    /// <summary>
+    /// Перерисовать только сетку
+    /// </summary>
+    private void RefreshGrid()
+    {
+        gridContainer.Clear();
+        if (currentShape == null)
+        {
+            infoLabel.text = "No shape selected";
+            return;
+        }
+
+        int w = currentShape.gridSize.x;
+        int h = currentShape.gridSize.y;
+
+        // Рисуем строки снизу вверх (чтобы (0,0) был левый нижний)
+        for (int row = h - 1; row >= 0; row--)
+        {
+            var rowElement = new VisualElement();
+            rowElement.AddToClassList("grid-row");
+            for (int col = 0; col < w; col++)
+            {
+                var cell = new VisualElement();
+                cell.AddToClassList("grid-cell");
+                if (currentShape.activeCells.Contains(new Vector2Int(col, row)))
+                    cell.AddToClassList("grid-cell--active");
+
+                cell.userData = new Vector2Int(col, row);
+                cell.RegisterCallback<MouseDownEvent>(OnCellClicked);
+                cell.style.width = 24;
+                cell.style.height = 24;
+                cell.style.marginLeft = 2;
+                cell.style.marginTop = 2;
+                //cell.style.backgroundColor = new StyleColor(Color.gray);
+                rowElement.Add(cell);
+            }
+            gridContainer.Add(rowElement);
+        }
+
+        infoLabel.text = $"Active Cells: {currentShape.activeCells.Count}";
+    }
+
+    private void OnCellClicked(MouseDownEvent evt)
+    {
+        if (currentShape == null) return;
+        var cell = evt.currentTarget as VisualElement;
+        Vector2Int coord = (Vector2Int)cell.userData;
+
+        Undo.RecordObject(currentShape, "Toggle Cell");
+
+        if (currentShape.activeCells.Contains(coord))
+            currentShape.activeCells.Remove(coord);
+        else
+            currentShape.activeCells.Add(coord);
+
+        EditorUtility.SetDirty(currentShape);
+
+        // Обновляем визуал только этой клетки
+        if (currentShape.activeCells.Contains(coord))
+            cell.AddToClassList("grid-cell--active");
+        else
+            cell.RemoveFromClassList("grid-cell--active");
+
+        infoLabel.text = $"Active Cells: {currentShape.activeCells.Count}";
+    }
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Levels\LevelSettings.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "Level", menuName = "Levels/New Level")]
+public class LevelSettings : ScriptableObject
+{
+    public int levelNumber;
+    public int Rows;
+    public int Columns;
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\BFS.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using UnityEngine;
+
+public static class BFS
+{
+    [ThreadStatic]
+    private static Queue<Vector2Int> _queue;
+    public static HashSet<Vector2Int> Run(Tile.Snapshot?[,] board,
+        Vector2Int start,
+        Func<Tile.Snapshot?[,], Vector2Int, Vector2Int, Vector2Int, bool> canConnect)
+    {
+        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+
+        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+        Array.Clear(visited, 0, rows * cols);
+
+        _queue ??= new Queue<Vector2Int>();
+        _queue.Clear();
+
+        visited[start.x * cols + start.y] = true;
+
+        _queue.Enqueue(start);
+
+        var group = new HashSet<Vector2Int>();
+        while (_queue.Count > 0)
+        {
+            var pos = _queue.Dequeue();
+            group.Add(pos);
+
+            for (var i = pos.x - 1; i <= pos.x + 1; i++)
+            {
+                for (var j = pos.y - 1; j <= pos.y + 1; j++)
+                {
+
+                    if (i < 0 || i >= rows || j < 0 || j >= cols) continue;
+                    if (visited[i * cols + j]) continue;
+                    if (board[i, j] is null) continue;
+
+                    if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
+                    {
+                        visited[i * cols + j] = true;
+                        _queue.Enqueue(board[i, j].Value.GridPosition);
+                    }
+                }
+            }
+        }
+        ArrayPool<bool>.Shared.Return(visited);
+        return group;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\MatchEvaluator.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Buffers;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Pool;
+using UnityEngine.Video;
+
+public struct MatchInfo
+{
+    public TileType Type;
+    public HashSet<Vector2Int> Positions;
+    public int Count => Positions.Count;
+}
+
+[CreateAssetMenu(fileName = "MatchEvaluator", menuName = "Scriptable Objects/MatchEvaluator")]
+public class MatchEvaluator : ScriptableObject
+{
+    public MatchRules MatchRules;
+    [ThreadStatic] private static Queue<Vector2Int> _queue;
+
+
+    public List<MatchInfo> FindAll(Tile.Snapshot?[,] board)
+    {
+        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+
+        var groups = new List<MatchInfo>();
+
+        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+        Array.Clear(visited, 0, rows * cols);
+
+        for (var r = 0; r < rows; r++)
+        {
+            for (var c = 0; c < cols; c++)
+            {
+                if (board[r, c] is null || visited[r * cols + c]) continue;
+                if (board[r, c] is not null && board[r, c].Value.IsBonus) continue;
+
+                var group = GroupAt(board, board[r, c].Value.GridPosition);
+
+                foreach (var pos in group)
+                {
+                    visited[pos.x * cols + pos.y] = true;
+                }
+
+                if (group.Count > 2)
+                {
+                    var matchInfo = new MatchInfo
+                    {
+                        Type = board[r, c].Value.Type,
+                        Positions = group
+                    };
+                    groups.Add(matchInfo);
+                }
+
+            }
+        }
+        ArrayPool<bool>.Shared.Return(visited);
+        return groups;
+    }
+
+    public List<MatchInfo> FindAllBonuses(Tile.Snapshot?[,] board, Vector2Int startPos)
+    {
+        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+        //ищем по бонусу и его правилу все совпадения, если в совпадениях бонуса был найден другой бонус - ищем его тоже но
+        //добавляем только ячейки которые не были до этого задеты другим бонусом
+        var type = board[startPos.x, startPos.y].Value.Type;
+        
+        var groups = new List<MatchInfo>();
+        if (type != TileType.Bomb && type != TileType.VerticalBomb && type != TileType.HorizontalBomb) return groups;
+
+        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+        Array.Clear(visited, 0, visited.Length);
+
+        var queue = new Queue<Vector2Int>();
+        queue.Enqueue(startPos);
+
+        while (queue.Count > 0)
+        {
+            var currPos = queue.Dequeue();
+
+            var group = GroupAt(board, currPos);
+            if (group.Count < 3) continue;
+
+            var cleanGroup = new MatchInfo { Type = board[startPos.x, startPos.y].Value.Type, Positions = new HashSet<Vector2Int>()};
+            foreach (var pos in group)
+            {
+                if (!visited[pos.x * cols + pos.y])
+                {
+                    if (board[pos.x, pos.y].Value.IsBonus) queue.Enqueue(pos);
+                    cleanGroup.Positions.Add(pos);
+                    visited[pos.x * cols + pos.y] = true;
+                }
+
+            }
+            if (cleanGroup.Positions.Count > 0)
+                groups.Add(cleanGroup);
+        }
+        ArrayPool<bool>.Shared.Return(visited);
+        return groups;
+    }
+
+    public (Vector2Int pos1, Vector2Int pos2)? FindAvailableHint(Tile.Snapshot?[,] snapshot)
+    {
+        var (rows, cols) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+        for (var i = 0; i < rows; i++)
+        {
+            for (var j = 0; j < cols; j++)
+            {
+                if (snapshot[i, j] == null) continue;
+
+                // ВПРАВО (j + 1)
+                if (j + 1 < cols && snapshot[i, j + 1] != null)
+                {
+                    (snapshot[i, j], snapshot[i, j + 1]) = (snapshot[i, j + 1], snapshot[i, j]);
+
+                    if (GroupSizeAt(snapshot, new Vector2Int(i, j)) >= 3 ||
+                        GroupSizeAt(snapshot, new Vector2Int(i, j + 1)) >= 3)
+                    {
+                        return (new Vector2Int(i, j), new Vector2Int(i, j + 1));
+                    }
+
+                    (snapshot[i, j], snapshot[i, j + 1]) = (snapshot[i, j + 1], snapshot[i, j]);
+                }
+
+                // ВНИЗ (i + 1)
+                if (i + 1 < rows && snapshot[i + 1, j] != null)
+                {
+                    (snapshot[i, j], snapshot[i + 1, j]) = (snapshot[i + 1, j], snapshot[i, j]);
+
+                    if (GroupSizeAt(snapshot, new Vector2Int(i, j)) >= 3 ||
+                        GroupSizeAt(snapshot, new Vector2Int(i + 1, j)) >= 3)
+                    {
+                        return (new Vector2Int(i, j), new Vector2Int(i + 1, j));
+                    }
+
+                    (snapshot[i, j], snapshot[i + 1, j]) = (snapshot[i + 1, j], snapshot[i, j]);
+                }
+            }
+        }
+        return null; 
+    }
+
+
+    public HashSet<Vector2Int> GroupAt(Tile.Snapshot?[,] board, Vector2Int start)
+    {
+        try
+        {
+            if (start.x == -1 || start.y == -1) { Debug.Log($"-1 : {start.x}, {start.y}"); }
+            var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
+            var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
+            return group;
+        } catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            Debug.Log(board[start.x, start.y].Value.Type);
+            Debug.Log($"{start.x}, {start.y}");
+            throw new Exception();
+        }
+    }
+
+    public int GroupSizeAt(Tile.Snapshot?[,] board, Vector2Int start)
+    {
+        if (start.x < 0 || start.x >= board.GetLength(0) ||
+            start.y < 0 || start.y >= board.GetLength(1))
+            return 0;
+        if (board[start.x, start.y] == null) return 0;
+
+        var rows = board.GetLength(0);
+        var cols = board.GetLength(1);
+
+        var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
+
+        var count = BFS.Run(board, start, rule.IsMatch).Count;
+
+
+        return count;
+    }
+}
+
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\ScoreData.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "ScoreData", menuName = "Scriptable Objects/ScoreData")]
+public class ScoreData : ScriptableObject
+{
+    public int Score;
+    public int RecordScore;
+
+    public void AddScore(int score)
+    {
+        Score += score;
+        if (Score > RecordScore) RecordScore = Score;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\SpawnEvaluator.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Unity.VisualScripting;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "SpawnEvaluator", menuName = "Scriptable Objects/SpawnEvaluator")]
+public class SpawnEvaluator : ScriptableObject
+{
+    [Req] public SpawnRules spawnRules;
+    [Req] public MatchRules matchRules;
+
+    //выбор обычной фишки
+    //надо както предиктивно считать какой тип выбрать чтобы не было бесконечных совпадений и доска "усложнялась" после каждой итерации
+    public TileType GetPredictedWeightedTile(Tile.Snapshot?[,] snapshot, Vector2Int pos, int iterationCnt)
+    {
+        var chance = GetMatchChance(iterationCnt);
+        var match = new bool[7];
+        for (var i = 1; i < 7; i++)
+        {
+            var typeForCheck = (TileType)i;
+            var original = snapshot[pos.x, pos.y];
+            if (original is null) return TileType.Neutral;
+
+            var hypothetical = original.Value.WithType(typeForCheck);
+            snapshot[pos.x, pos.y] = hypothetical;
+
+            var rule = matchRules.GetRule(typeForCheck);
+            if (rule is null) return TileType.Neutral;
+            //поменять в снепшоте ячейку на тип
+            var group = BFS.Run(snapshot, pos, rule.IsMatch);
+            match[i] = group.Count > 2;
+            //вернуть в снепшоте ячейку на старый тип
+            snapshot[pos.x, pos.y] = original;
+        }
+        //подкрутка, если попали в процент - берем рандомный создавший матч из списка, если не попал - то не создавший матч
+        var prediction = UnityEngine.Random.Range(0, 100);
+        bool isMatching = false;
+        if (prediction < chance) isMatching = true;
+
+        var tile = TileType.Neutral;
+        if (isMatching) {
+            var i = 1;
+            for (var m = 1; m < 7; m++)
+            {
+                if (!match[m]) continue;
+                var predict = UnityEngine.Random.Range(0,i++);
+                if (predict == 0) tile = (TileType)m;
+            }
+        } else
+        {
+            var i = 1;
+            for (var m = 1; m < 7; m++)
+            {
+                if (match[m]) continue;
+                var predict = UnityEngine.Random.Range(0, i++);
+                if (predict == 0) tile = (TileType)m;
+            }
+        }
+
+        return tile;
+    }
+
+    //выбор бонусной фишки
+    //сравниваем группу с правилами, если совпало - ворзвращаем тип
+    public TileType GetMatchedBonusTile(IEnumerable<Vector2Int> group)
+    {
+        for (var i = 7; i < 10; i++)
+        {
+            var rule = spawnRules.GetRule((TileType)i);
+            if (rule.IsMatch(group)) return rule.Type;
+        }
+        return TileType.Neutral;
+    }
+
+
+    //подкрутка
+    //подкрутка шанса на то что спавнящаяся фишка создаст матч. уменьшаться както должно с каждым каскадом
+
+    public float GetMatchChance(int iterationCnt)
+    {
+        return (float) 1 / (float) iterationCnt * 100;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileTypeData.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "TileTypeData", menuName = "Scriptable Objects/TileTypeData")]
+public class TileTypeData : ScriptableObject
+{
+    [SerializeField] private Color _blue = Color.blue;
+    [SerializeField] private Color _red = Color.red;
+    [SerializeField] private Color _yellow = Color.yellow;
+    [SerializeField] private Color _green = Color.green;
+    [SerializeField] private Color _orange = Color.orange;
+    [SerializeField] private Color _purple = Color.purple;
+    [SerializeField] private Color _neutral = Color.white;
+
+    [SerializeField] private Color _black = Color.black;
+    [SerializeField] private Color _gray = Color.gray;
+    [SerializeField] private Color _coral = Color.coral;
+
+    public Color Black => _black;
+    public Color Gray => _gray;
+    public Color Coral => _coral;
+    public Color Blue => _blue;
+    public Color Red => _red;
+    public Color Yellow => _yellow;
+    public Color Green => _green;
+    public Color Orange => _orange;
+    public Color Purple => _purple;
+
+    public Color Neutral => _neutral;
+
+    public Color GetColor(TileType type)
+    {
+        return type switch
+        {
+            TileType.Red => _red,
+            TileType.Green => _green,
+            TileType.Blue => _blue,
+            TileType.Yellow => _yellow,
+            TileType.Orange => _orange,
+            TileType.Purple => _purple,
+            _ => _neutral
+
+        };
+    }
+
+    public Color GetColor(BonusType type)
+    {
+        return type switch
+        {
+            BonusType.Bomb => _black,
+            BonusType.VerticalBomb => _gray,
+            BonusType.HorizontalBomb => _coral,
+            _ => _neutral
+
+        };
+    }
+
+    public Color GetColor(TileKind kind)
+    {
+        if (kind.KindType == TileKindType.Regular)
+            return GetColor(kind.RegularType);
+        else
+            return GetColor(kind.BonusType);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\Events\Events.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum GameEvent
+{
+    Input,
+    Animation,
+    Score
+}
+
+
+[CreateAssetMenu(fileName = "Events", menuName = "EventBus/Mapper")]
+public class Events : ScriptableObject
+{
+    [System.Serializable]
+    public struct EventConfig
+    {
+        public GameEvent eventID; 
+        public string busName; 
+    }
+
+    [SerializeField] private List<EventConfig> events = new List<EventConfig>();
+
+    public string GetBusName(GameEvent id)
+    {
+        return events.Find(e => e.eventID == id).busName;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\BonusState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+using Unity.VisualScripting;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "BonusState", menuName = "Scriptable Objects/BonusState")]
+public class BonusState : GameState
+{
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    {
+        Debug.Log("bonus state");
+        _field = field;
+        _fsm = machine;
+        var spawnedBonuses = new HashSet<Tile>();
+
+        foreach (var match in context.Matches)
+        {
+            var type = _field.SpawnEvaluator.GetMatchedBonusTile(match.Positions);
+            if (type is TileType.Neutral) continue;
+
+            var i = 1;
+            var p = new Vector2Int(0, 0);
+            foreach (var pos in match.Positions)
+            {
+                if (UnityEngine.Random.Range(0, i++) == 0)
+                {
+                    p=pos;
+                }
+            }
+            var info = new SpawnInfo { Type = type, IsBonus = true, Offset = 0, Position = p };
+            var tile = _field.SpawnTile(info, context.Snapshot, context.CascadeIteration);
+            _field.UpdateTileOnGrid(p, tile);
+            spawnedBonuses.Add(tile);
+        }
+
+        AnimateBonusSpawn(spawnedBonuses);
+
+        _fsm.Switch(StateEvent.SpawnBonus, context);
+    }
+
+    private void AnimateBonusSpawn(HashSet<Tile> bonuses)
+    {
+        var bonusAnimList = new List<AnimationData>();        
+        foreach (var bonus in bonuses)
+        {
+            var data = new AnimationData
+            {
+                Type = AnimationType.SpawnAtPoint,
+                Target = bonus.transform,
+                Duration = 1.0f
+
+            };
+            bonusAnimList.Add(data);
+        }
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, bonusAnimList);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\CompactState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+public struct CompactInfo
+{
+    public Tile Tile;
+    public Vector2Int TargetPos;
+}
+
+
+[CreateAssetMenu(fileName = "CompactState", menuName = "Scriptable Objects/CompactState")]
+public class CompactState : GameState
+{
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    {
+        _field = field;
+        _fsm = machine;
+
+        var compacts = _field.CompactBoard();
+
+        context.Compacts = compacts;
+
+        if (compacts.Count == 0)
+        {
+            _fsm.Switch(StateEvent.CompactTiles, context);
+            return;
+        }
+        AnimateFalls(context);
+
+        _fsm.Switch(StateEvent.CompactTiles, context);
+    }
+
+    private void AnimateFalls(TransitionContext context)
+    {
+        var fallsAnimList = new List<AnimationData>();
+
+        foreach (var compact in context.Compacts)
+        {
+            var data = new AnimationData
+            {
+                Type = AnimationType.Move,
+                Target = compact.Tile.transform,
+                TargetPosition = _field.GetWorldPos(compact.TargetPos),
+                Duration = 1.0f
+            };
+            fallsAnimList.Add(data);
+        }
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, fallsAnimList);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\EvaluationState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.Pool;
+using static UnityEngine.Rendering.DebugUI.Table;
+
+[CreateAssetMenu(fileName = "Evaluatiion", menuName = "Scriptable Objects/Evaluatiion")]
+public class Evaluation : GameState
+{
+    
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    {
+        Debug.Log("Evaluation state enter");
+        _field = field;
+        _fsm = machine;
+        var snapshot = _field.ToSnapshot();
+        //context.From, context.PositionTo, context.To, context.PositionFrom
+
+        var foundMatches = new List<MatchInfo>();
+
+        if (context.From.IsBonus || context.To.IsBonus)
+        {
+            if (context.From.IsBonus)
+            {
+                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.From.GridPosition);
+                if (group.Count > 0) foundMatches.AddRange(group);
+            }
+            if (context.To.IsBonus)
+            {
+                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.To.GridPosition);
+                if (group.Count > 0) foundMatches.AddRange(group);
+            }
+        }
+        else
+        {
+            var group = _field.MatchEvaluator.FindAll(snapshot);
+            if (group.Count > 0) foundMatches.AddRange(group);
+        }
+
+        if (foundMatches.Count == 0)
+        {
+            _fsm.Switch(StateEvent.NoMatches, context);
+            return;
+        }
+        
+        context.Matches = foundMatches;
+        //_field.ScoreManager.CalculateScore(context.Matches, context.CascadeIteration);
+
+        context.Snapshot = snapshot;
+
+        context.CascadeIteration += 1;
+        _fsm.Switch(StateEvent.MatchesFound, context);
+    }
+}
+
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\FieldStates.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+
+[Serializable]
+public class FieldStateMapping
+{
+    [Tooltip("Состояние")]
+    [Req]public GameState State;
+
+    [Tooltip("Переходы")]
+    public List<Transition> Transitions;
+}
+
+[Serializable]
+public class Transition
+{
+    [Tooltip("Событие")]
+    [Req] public StateEvent Event;
+
+    [Tooltip("Переход")]
+    [Req] public GameState State;
+}
+
+public enum StateEvent
+{
+    FinishLoading,
+    MoveTiles,
+    ShowHint,
+    Calculate,
+    Swap,
+    NoMatches,
+    MatchesFound,
+    DestroyTiles,
+    CompactTiles,
+    FillEmptyTiles,
+    HasMoves,
+    NoMovesLeft,
+    SwapBack,
+    SpawnBonus
+}
+
+
+[CreateAssetMenu(fileName = "FieldStates", menuName = "Scriptable Objects/FieldStates")]
+public class FieldStates : ScriptableObject
+{
+    [SerializeField]
+    private List<FieldStateMapping> mappings;
+
+    // Для быстрого доступа можно построить словарь в рантайме
+    private Dictionary<GameState, Dictionary<StateEvent, GameState>> _lookup;
+
+    private void OnEnable()
+    {
+        BuildLookup();
+    }
+
+    private void BuildLookup()
+    {
+        _lookup = new Dictionary<GameState, Dictionary<StateEvent, GameState>>();
+        if (mappings == null) return;
+        foreach (var mapping in mappings)
+        {
+            if (mapping.Transitions != null && mapping.Transitions.Count > 0)
+                _lookup[mapping.State] = mapping.Transitions.ToDictionary(v => v.Event, v => v.State);
+        }
+    }
+
+
+    public GameState GetTransition(GameState type, StateEvent e)
+    {
+        if (_lookup == null) BuildLookup();
+        _lookup.TryGetValue(type, out var transitions);
+        transitions.TryGetValue(e, out var state);
+        return state;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\FillState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+using static UnityEngine.Rendering.DebugUI.Table;
+
+[CreateAssetMenu(fileName = "FillState", menuName = "Scriptable Objects/FillState")]
+public class FillState : GameState
+{
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    {
+        _field = field;
+        _fsm = machine;
+
+        _field.FillEmptyTilesOnGrid(context.CascadeIteration);
+
+        AnimateFillEmpty();
+
+        _fsm.Switch(StateEvent.FillEmptyTiles, context);
+    }
+
+    private void AnimateFillEmpty()
+    {
+        var fillAnimList = new List<AnimationData>();
+
+        var bounds = _field.GetBounds();
+
+        for (var i = 0; i < bounds.x; i++)
+        {
+            for (var j = 0; j < bounds.y; j++)
+            {
+                var tile = _field.GetTileAt(new Vector2Int(i, j));
+                if (tile == null) continue;
+
+                Vector3 targetWorldPosition = _field.GetWorldPos(tile.GridPosition);
+
+                if (tile.transform.position != targetWorldPosition)
+                {
+                    var data = new AnimationData
+                    {
+                        Type = AnimationType.Move,
+                        Target = tile.transform,
+                        TargetPosition = targetWorldPosition,
+                        Duration = 1.0f
+                    };
+                    fillAnimList.Add(data);
+                }
+            }
+        }
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, fillAnimList);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\GameState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public struct TransitionContext
+{
+    public StateEvent Type;
+    public Tile From;
+    public Tile To;
+    public Vector2Int PositionFrom;
+    public Vector2Int PositionTo;
+
+    public HintInfo CurrentHint { get; set; }
+    public bool HasAvailableMoves { get; set; }
+
+    public List<CompactInfo> Compacts {  get; internal set; }
+    public List<MatchInfo> Matches { get; internal set; }
+    public int CascadeIteration { get; internal set; }
+    public Tile.Snapshot?[,] Snapshot { get; internal set; }
+}
+
+public abstract class GameState : ScriptableObject 
+{
+    protected Field _field;
+    protected FiniteStateMachine _fsm;
+    public virtual void Init() { }
+    public abstract void Enter(FiniteStateMachine machine);
+
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\HintState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Threading.Tasks;
+using UnityEngine;
+using static UnityEngine.Rendering.DebugUI.Table;
+
+public struct HintInfo
+{
+    public Tile Tile1;
+    public Tile Tile2;
+}
+
+[CreateAssetMenu(fileName = "HintState", menuName = "Scriptable Objects/HintState")]
+public class HintState : GameState
+{
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context)
+    {
+        _field = field;
+        _fsm = machine;
+
+        var snapshot = _field.ToSnapshot();
+
+        var coords = _field.MatchEvaluator.FindAvailableHint(snapshot);
+
+        if (coords == null)
+        {
+            _fsm.Switch(StateEvent.NoMovesLeft, context); 
+            return;
+        }
+
+        context.CurrentHint = new HintInfo
+        {
+            Tile1 = _field.GetTileAt(coords.Value.pos1),
+            Tile2 = _field.GetTileAt(coords.Value.pos2)
+        };
+
+        AnimateHint(context);
+
+        _fsm.Switch(StateEvent.HasMoves, context);
+    }
+
+    private void AnimateHint(TransitionContext context)
+    {
+        var hint = context.CurrentHint;
+        if (hint.Tile1 == null || hint.Tile2 == null) return;
+
+        // Чистая таска анимации покачивания на экране
+        //await _field.AnimationManager.DoHintWiggleAsync(hint.Tile1.transform, hint.Tile2.transform);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\IdleState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public struct IdleTransitionData
+{
+    Vector2Int FromPos {  get; set; }
+    Vector2Int FromStartPos { get; set; }
+    Vector2Int ToPos { get; set; }
+    Vector2Int ToStartPos { get; set; }
+}
+
+
+[CreateAssetMenu(fileName = "IdleState", menuName = "Scriptable Objects/IdleState")]
+public class IdleState : GameState
+{
+    public override void Enter(FiniteStateMachine machine)
+    {
+        var name = machine.Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Trigger(name, true);
+        GameplayEventBus<IdleTransitionData>.Register(name, OnFieldEvent);
+    }
+
+    public void OnFieldEvent(IdleTransitionData eventData)
+    {
+        var name = _fsm.Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Trigger(name, false);
+        GameplayEventBus<IdleTransitionData>.Unregister(name, OnFieldEvent);
+
+        _fsm.Switch(StateEvent.MoveTiles);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\LoadingState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Unity.Mathematics;
+using UnityEngine;
+using static UnityEngine.Rendering.DebugUI.Table;
+
+[CreateAssetMenu(fileName = "LoadingState", menuName = "Scriptable Objects/LoadingState")]
+public class LoadingState : GameState
+{
+    public override void Enter(FiniteStateMachine machine)
+    {
+        var name = machine.Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<bool>.Trigger(name, false);
+
+
+        var bounds = machine.Field.GetBounds();
+        for (var i = 0; i < bounds.x; i++)
+        {
+            for (var j = 0; j < bounds.y; j++)
+            {
+                var tile = new LogicalTile
+                {
+                    Id = machine.Field.GenerateUniqueId(),
+                    //todo: сделать неслучайный спавн
+                    Type = (TileType)UnityEngine.Random.Range(1, 6)
+
+                };
+                _fsm.Field.SetTileAt(new Vector2Int(i, j), tile);
+            }
+        }
+
+        _fsm.Switch(StateEvent.FinishLoading);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\RemoveState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+using static UnityEngine.Rendering.DebugUI;
+
+[CreateAssetMenu(fileName = "RemoveState", menuName = "Scriptable Objects/RemoveState")]
+public class RemoveState : GameState
+{
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    {
+        _field = field;
+        _fsm = machine;
+
+        foreach (var match in context.Matches)
+        {
+            _field.RemoveTiles(match.Positions);
+        }
+        
+        AnimateDestroy(context);
+
+        _fsm.Switch(StateEvent.DestroyTiles, context);
+    }
+
+    private void AnimateDestroy(TransitionContext context)
+    {
+        var destroyAnimList = new List<AnimationData>();
+
+        foreach (var group in context.Matches)
+        {
+            foreach (var tilePos in group.Positions)
+            {
+                if (context.Snapshot[tilePos.x, tilePos.y]  is not null)
+                {
+                    //var tile = _field.GetTileAt(tilePos);
+                    var tile = context.Snapshot[tilePos.x, tilePos.y].Value.Transform;
+
+                    var data = new AnimationData
+                    {
+                        Type = AnimationType.Destroy,
+                        Target = tile,
+                        Duration = 1.0f,
+                    };
+                    destroyAnimList.Add(data);
+                }
+            }
+        }
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, destroyAnimList);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\SwapBackState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "SwapBackState", menuName = "Scriptable Objects/SwapBackState")]
+public class SwapBackState : GameState
+{
+    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    {
+        _field = field;
+        _fsm = machine;
+
+        _field.SwapTiles(context.From, context.PositionFrom, context.To, context.PositionTo);
+
+        AnimateSwap(context);
+
+        _fsm.Switch(StateEvent.SwapBack, context);
+    }
+
+    private void AnimateSwap(TransitionContext context)
+    {
+        var animationDataList = new List<AnimationData>();
+
+        // From возвращается на свою родную позицию (PositionFrom)
+        var dataFrom = new AnimationData
+        {
+            Type = AnimationType.Move,
+            Target = context.From.transform,
+            TargetPosition = _field.GetWorldPos(context.PositionFrom),
+            Duration = 1.0f
+        };
+        animationDataList.Add(dataFrom);
+
+        // To возвращается на свою родную позицию (PositionTo)
+        var dataTo = new AnimationData
+        {
+            Type = AnimationType.Move,
+            Target = context.To.transform,
+            TargetPosition = _field.GetWorldPos(context.PositionTo),
+            Duration = 1.0f
+        };
+        animationDataList.Add(dataTo);
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\SwapState.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "SwapState", menuName = "Scriptable Objects/SwapState")]
+public class SwapState : GameState
+{
+    public override void Enter(FiniteStateMachine machine)
+    {
+        //_fsm = machine;
+
+        //machine.Field.SwapTiles(context.From, context.PositionTo, context.To, context.PositionFrom);
+
+        //AnimateSwap();
+
+
+        //_fsm.Switch(StateEvent.Swap, context);
+    }
+
+
+    private void AnimateSwap(TransitionContext context)
+    {
+        var animationDataList = new List<AnimationData>();
+
+        var dataFrom = new AnimationData
+        {
+            Type = AnimationType.Move,
+            Target = context.From.transform,
+            TargetPosition = _field.GetWorldPos(context.PositionTo),
+            Duration = 1.0f
+        };
+        animationDataList.Add(dataFrom);
+
+        var dataTo = new AnimationData
+        {
+            Type = AnimationType.Move,
+            Target = context.To.transform,
+            TargetPosition = _field.GetWorldPos(context.PositionFrom),
+            Duration = 1.0f
+        };
+        animationDataList.Add(dataTo);
+
+        var name = _fsm.Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
+    }
+}
+
+
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\MatchRules.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using Assets.Game.Components;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+[Serializable]
+public class TileTypeRuleMapping
+{
+    [Tooltip("Тип тайла")]
+    public TileType tileType;
+
+    [Tooltip("Правила, которые применяются к этому типу")]
+    public List<TileMatchRuleBase> rules;
+}
+
+
+[CreateAssetMenu(fileName = "MatchRules", menuName = "Scriptable Objects/MatchRules")]
+public class MatchRules : ScriptableObject
+{
+    [SerializeField]
+    private List<TileTypeRuleMapping> mappings;
+
+    // Для быстрого доступа можно построить словарь в рантайме
+    private Dictionary<TileType, List<TileMatchRuleBase>> lookup;
+
+    private void OnEnable()
+    {
+        BuildLookup();
+    }
+
+    private void BuildLookup()
+    {
+        lookup = new Dictionary<TileType, List<TileMatchRuleBase>>();
+        if (mappings == null) return;
+        foreach (var mapping in mappings)
+        {
+            if (mapping.rules != null && mapping.rules.Count > 0)
+                lookup[mapping.tileType] = mapping.rules;
+        }
+    }
+
+    /// <summary>Возвращает все правила для указанного типа тайла</summary>
+    public List<TileMatchRuleBase> GetRules(TileType type)
+    {
+        if (lookup == null) BuildLookup();
+        lookup.TryGetValue(type, out var rules);
+        return rules ?? new List<TileMatchRuleBase>();
+    }
+
+    public TileMatchRuleBase GetRule(TileType type)
+    {
+        var rules = GetRules(type);
+        return rules.Count > 0 ? rules[0] : null;
+    }
+}
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\TileBombMatchRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "TileBombMatchRule", menuName = "Rules/Bomb")]
+[Serializable]
+public class TileBombMatchRule : TileMatchRuleBase
+{
+    [SerializeField] private int ExplosionRadius = 1;
+
+    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    {
+        Vector2Int diff = target - source;
+        int distance = Mathf.Max(Mathf.Abs(diff.x), Mathf.Abs(diff.y));
+        return distance <= ExplosionRadius;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\TileCommonMatchRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using UnityEngine;
+using static Tile;
+
+[CreateAssetMenu(fileName = "TileCommonMatchRule", menuName = "Rules/Common")]
+[Serializable]
+public class TileCommonMatchRule : TileMatchRuleBase
+{
+
+    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    {
+        return Mathf.Abs(target.x - current.x) + Mathf.Abs(target.y - current.y) == 1 &&
+            board[current.x, current.y] is Snapshot c && board[target.x, target.y] is Snapshot t &&
+            (c.Type == t.Type);
+    }
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\TileHorizontalMatchRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+
+using System;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "TileHorizontalBombMatchRule", menuName = "Rules/HorizontalBomb")]
+[Serializable]
+public class TileHorizontalBombMatchRule : TileMatchRuleBase
+{
+    [SerializeField] private Vector2Int Axis = Vector2Int.left;
+
+    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    {
+        return target.y == source.y;
+    }
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\TileMatchRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+﻿using NUnit.Framework;
+using System;
+using Unity.VisualScripting;
+using UnityEngine;
+using static Tile;
+
+public abstract class TileMatchRuleBase: ScriptableObject
+{
+    public abstract bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target);
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\TileVerticalBombMatchRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "TileVerticalBombMatchRule", menuName = "Rules/VerticalBomb")]
+[Serializable]
+public class TileVerticalBombMatchRule : TileMatchRuleBase
+{
+    [SerializeField] private Vector2Int Axis = Vector2Int.down;
+
+    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    {
+        return target.x == source.x;
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileSpawnRules\SpawnRules.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+
+[Serializable]
+public class TileTypeSpawnRuleMapping
+{
+    [Tooltip("Тип тайла")]
+    public TileType tileType;
+
+    [Tooltip("Правила, которые применяются к этому типу")]
+    public List<TileSpawnRuleBase> rules;
+}
+
+[CreateAssetMenu(fileName = "SpawnRules", menuName = "Scriptable Objects/SpawnRules")]
+public class SpawnRules : ScriptableObject
+{
+    [SerializeField]
+    private List<TileTypeSpawnRuleMapping> mappings;
+
+    // Для быстрого доступа можно построить словарь в рантайме
+    private Dictionary<TileType, List<TileSpawnRuleBase>> lookup;
+
+    private void OnEnable()
+    {
+        BuildLookup();
+    }
+
+    private void BuildLookup()
+    {
+        lookup = new Dictionary<TileType, List<TileSpawnRuleBase>>();
+        if (mappings == null) return;
+        foreach (var mapping in mappings)
+        {
+            if (mapping.rules != null && mapping.rules.Count > 0)
+                lookup[mapping.tileType] = mapping.rules;
+        }
+    }
+
+    /// <summary>Возвращает все правила для указанного типа тайла</summary>
+    public List<TileSpawnRuleBase> GetRules(TileType type)
+    {
+        if (lookup == null) BuildLookup();
+        lookup.TryGetValue(type, out var rules);
+        return rules ?? new List<TileSpawnRuleBase>();
+    }
+
+    public TileSpawnRuleBase GetRule(TileType type)
+    {
+        var rules = GetRules(type);
+        return rules.Count > 0 ? rules[0] : null;
+    }
+
+    
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileSpawnRules\TileBombSpawnRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+
+
+[CreateAssetMenu(fileName = "TileBombSpawnRule", menuName = "Tile Spawn Rules/TileBombSpawnRule")]
+public class TileBombSpawnRule : TileSpawnRuleBase
+{
+    
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileSpawnRules\TileHorizontalBombSpawnRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "TileHorizontalBombSpawnRule", menuName = "Tile Spawn Rules/TileHorizontalBombSpawnRule")]
+public class TileHorizontalBombSpawnRule : TileSpawnRuleBase
+{
+    
+}
+
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileSpawnRules\TileSpawnRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+
+//public abstract class TileSpawnRuleBase : ScriptableObject
+//{
+//    [Tooltip("Размер сетки (ширина, высота)")]
+//    public Vector2Int gridSize;
+//    public List<Vector2Int> activeCells;
+//    [Req]public TileType Type;
+//    public abstract bool IsMatch(IEnumerable<Vector2Int> cells);
+//}
+
+public abstract class TileSpawnRuleBase : ScriptableObject
+{
+    [Tooltip("Размер сетки (ширина, высота)")]
+    public Vector2Int gridSize;
+    public List<Vector2Int> activeCells;
+    public bool CheckRotations;
+
+    // [Req] сохраняем ваш кастомный атрибут, если он необходим
+    public TileType Type;
+
+    /// <summary>
+    /// Универсальный метод нормализации координат любой фигуры.
+    /// </summary>
+    public HashSet<Vector2Int> Normalize(HashSet<Vector2Int> cells)
+    {
+        if (cells == null || cells.Count == 0) return new HashSet<Vector2Int>();
+
+        // ИСПРАВЛЕНО: Теперь минимумы ищутся строго в переданной коллекции cells
+        int minX = int.MaxValue, minY = int.MaxValue;
+        foreach (var c in cells)
+        {
+            if (c.x < minX) minX = c.x;
+            if (c.y < minY) minY = c.y;
+        }
+
+        var normalized = new HashSet<Vector2Int>();
+        foreach (var c in cells)
+            normalized.Add(new Vector2Int(c.x - minX, c.y - minY));
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Сделан virtual вместо abstract, чтобы содержать общую для всех бонусов логику сопоставления.
+    /// </summary>
+    public virtual bool IsMatch(IEnumerable<Vector2Int> cells)
+    {
+        if (cells == null) return false;
+
+        var inputCells = new HashSet<Vector2Int>(cells);
+        var inputNormalized = Normalize(inputCells);
+
+        var referenceNormalized = Normalize(activeCells.ToHashSet());
+        if (referenceNormalized.Count != inputNormalized.Count) return false;
+
+        // Проверяем совпадение с учетом всех 4 поворотов
+        if (CheckRotations)
+            return GetAllRotations(referenceNormalized).Any(rotated => rotated.SetEquals(inputNormalized));
+        return referenceNormalized.SetEquals(inputNormalized);
+    }
+
+    private IEnumerable<HashSet<Vector2Int>> GetAllRotations(HashSet<Vector2Int> shape)
+    {
+        HashSet<Vector2Int> current = shape;
+        yield return current;
+
+        for (int i = 0; i < 3; i++)
+        {
+            current = Rotate90Clockwise(current);
+            yield return current;
+        }
+    }
+
+    private HashSet<Vector2Int> Rotate90Clockwise(HashSet<Vector2Int> shape)
+    {
+        var rotated = new HashSet<Vector2Int>();
+        foreach (var p in shape)
+            rotated.Add(new Vector2Int(p.y, -p.x));
+
+        return Normalize(rotated);
+    }
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileSpawnRules\TileVerticalBombSpawnRule.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "TileVerticalBombSpawnRule", menuName = "Tile Spawn Rules/TileVerticalBombSpawnRule")]
+public class TileVerticalBombSpawnRule : TileSpawnRuleBase
+{
+    
+} 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Shaders\Spark\Editor\CreateSweepGlowMaterial.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using UnityEditor;
+using UnityEngine;
+using System.IO;
+
+public static class CreateSweepGlowMaterial
+{
+    [MenuItem("Game/Spark/Create SweepGlow Material", priority = 100)]
+    private static void Create()
+    {
+        var shader = Shader.Find("Game/Spark/SweepGlow");
+        if (!shader)
+        {
+            EditorUtility.DisplayDialog("Error", "Shader 'Game/Spark/SweepGlow' not found.\nMake sure the shader file has been imported.", "OK");
+            return;
+        }
+
+        const string dir = "Assets/Game/Materials/Spark";
+        const string path = dir + "/SweepGlowTile.mat";
+
+        Directory.CreateDirectory(dir);
+
+        if (File.Exists(path) && !EditorUtility.DisplayDialog("Overwrite?", "Material already exists. Overwrite?", "Yes", "No"))
+            return;
+
+        var mat = new Material(shader)
+        {
+            name = "SweepGlowTile",
+        };
+
+        mat.SetFloat("_SweepMin", -13f);
+        mat.SetFloat("_SweepMax", 11f);
+        mat.SetFloat("_SweepWidth", 4f);
+        mat.SetFloat("_SweepSoftness", 3f);
+        mat.SetFloat("_SweepSpeed", 0.3f);
+        mat.SetColor("_GlowColor", Color.white);
+        mat.SetFloat("_GlowIntensity", 4f);
+
+        AssetDatabase.CreateAsset(mat, path);
+        AssetDatabase.SaveAssets();
+
+        EditorUtility.FocusProjectWindow();
+        Selection.activeObject = mat;
+        EditorGUIUtility.PingObject(mat);
+
+        Debug.Log("SweepGlow material created at " + path);
+    }
+}
+ 
+======================================== 
+ 
+ 

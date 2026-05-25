@@ -1,15 +1,22 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+//Размер и форма поля(например, сетка 8х8, или поле с вырезами / «дырами»).
+//Геометрия ячеек(наличие стен, заблокированных клеток, порталов).
+//Пул фишек(какие цвета конфет/самоцветов разрешены на этом уровне).
+//Цели уровня(набрать 1000 очков, уничтожить 20 клеток желе, опустить 3 ингредиента вниз).
+//Лимиты(количество ходов или таймер).
+
+
 public class LevelController : MonoBehaviour
 {
     [Header("Prefabs")]
-    [SerializeField] private FieldController fieldPrefab;
+    [SerializeField] private Field fieldPrefab;
 
     [Header("Level Data Storage")]
     [SerializeField] private List<LevelSettings> allLevels;
 
-    private FieldController _currentFieldInstance;
+    private Field _currentFieldInstance;
 
     private void Start()
     {

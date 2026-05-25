@@ -3,51 +3,43 @@ using System.Threading.Tasks;
 using UnityEngine;
 public struct CompactInfo
 {
-    public TileController Tile;
+    public Tile Tile;
     public Vector2Int TargetPos;
 }
 
 
 [CreateAssetMenu(fileName = "CompactState", menuName = "Scriptable Objects/CompactState")]
-public class CompactState : FieldState
+public class CompactState : GameState
 {
-    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public Events Events;
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
+        // падение плиток 
 
-        var compacts = _field.CompactBoard();
+        var name = Events.GetBusName(GameEvent.Animation);
+        var snapshot = machine.Field.ToSnapshot();
+        GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
 
-        context.Compacts = compacts;
-
-        if (compacts.Count == 0)
-        {
-            _fsm.Switch(StateEvent.CompactTiles, context);
-            return;
-        }
-        AnimateFalls(context);
-
-        _fsm.Switch(StateEvent.CompactTiles, context);
+        _fsm.Switch(StateEvent.FillUpTiles);
     }
 
+    //private void AnimateFalls(TransitionContext context)
+    //{
+    //    var fallsAnimList = new List<AnimationData>();
 
-    private void AnimateFalls(TransitionContext context)
-    {
-        var fallsAnimList = new List<AnimationData>();
+    //    foreach (var compact in context.Compacts)
+    //    {
+    //        var data = new AnimationData
+    //        {
+    //            Type = AnimationType.Move,
+    //            Target = compact.Tile.transform,
+    //            TargetPosition = _field.GetWorldPos(compact.TargetPos),
+    //            Duration = 1.0f
+    //        };
+    //        fallsAnimList.Add(data);
+    //    }
 
-        foreach (var compact in context.Compacts)
-        {
-            var data = new AnimationData
-            {
-                Type = AnimationType.Move,
-                Target = compact.Tile.transform,
-                TargetPosition = _field.GetWorldPos(compact.TargetPos),
-                Duration = 1.0f
-            };
-            fallsAnimList.Add(data);
-        }
-
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, fallsAnimList);
-    }
+    //    var name = _fsm.Events.GetBusName(GameEvent.Animation);
+    //    GameplayEventBus<List<AnimationData>>.Trigger(name, fallsAnimList);
+    //}
 }

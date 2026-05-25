@@ -1,46 +1,35 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
 
 [CreateAssetMenu(fileName = "SwapBackState", menuName = "Scriptable Objects/SwapBackState")]
-public class SwapBackState : FieldState
+public class SwapBackState : GameState
 {
-    public override void Enter(FieldController field, FiniteStateMachine machine, TransitionContext context = default)
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
         _fsm = machine;
 
-        _field.SwapTiles(context.From, context.PositionFrom, context.To, context.PositionTo);
+        var sourceId = machine.Blackboard.SourceDest.SourceId;
+        var destId = machine.Blackboard.SourceDest.DestId;
 
-        AnimateSwap(context);
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
+        machine.Field.ToPositionChache(positionsCache);
 
-        _fsm.Switch(StateEvent.SwapBack, context);
-    }
 
-    private void AnimateSwap(TransitionContext context)
-    {
-        var animationDataList = new List<AnimationData>();
-
-        // From возвращается на свою родную позицию (PositionFrom)
-        var dataFrom = new AnimationData
+        if (positionsCache.TryGetValue(sourceId, out var sourcePos) &&
+        positionsCache.TryGetValue(destId, out var destPos))
         {
-            Type = AnimationType.Move,
-            Target = context.From.transform,
-            TargetPosition = _field.GetWorldPos(context.PositionFrom),
-            Duration = 1.0f
-        };
-        animationDataList.Add(dataFrom);
+            var source = machine.Field.GetTileAt(sourceId);
+            var dest = machine.Field.GetTileAt(destId);
 
-        // To возвращается на свою родную позицию (PositionTo)
-        var dataTo = new AnimationData
-        {
-            Type = AnimationType.Move,
-            Target = context.To.transform,
-            TargetPosition = _field.GetWorldPos(context.PositionTo),
-            Duration = 1.0f
-        };
-        animationDataList.Add(dataTo);
+            _fsm.Field.SetTileAt(sourcePos, dest);
+            _fsm.Field.SetTileAt(destPos, source);
+        }
 
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+
+        _fsm.Switch(StateEvent.SwapBack);
     }
 }

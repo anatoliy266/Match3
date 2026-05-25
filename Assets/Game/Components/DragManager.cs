@@ -3,6 +3,7 @@ using Unity.InferenceEngine;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using static UnityEditor.PlayerSettings;
 
 public class DragManager : MonoBehaviour
 {
@@ -14,18 +15,13 @@ public class DragManager : MonoBehaviour
     [Req] public Camera Camera;
     [Req] public Events Events;
 
-    //public event Action<TransitionContext> OnDragCompleted;
+    private Tile Source;
+    private Tile Dest;
 
-    private Vector3 _startPosition;
-    private Vector2Int _startGridPos;
-    private TileController _selectedTile;
-    private Vector3 _currentPos;
-    private TileController _selectedObject;
-    private Vector3 _offset;
-    private Plane _dragPlane;
-    private bool _isBusy = false;
+    private Vector3 SourceStartPos;
+    private Vector3 DestStartPos;
 
-    
+
 
     private void OnEnable()
     {
@@ -43,7 +39,8 @@ public class DragManager : MonoBehaviour
         {
             TrackingAction.action.Enable();
             ClickingAction.action.Enable();
-        } else
+        }
+        else
         {
             TrackingAction.action.Disable();
             ClickingAction.action.Disable();
@@ -58,156 +55,110 @@ public class DragManager : MonoBehaviour
         var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Unregister(name, OnInputEventReceived);
 
-        
+
     }
-
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    //private void OnTouchPress(InputAction.CallbackContext context)
-    //{
-    //    if (_isBusy) return;
-    //    _currentPos = Pointer.current.position.ReadValue();
-    //    var ray = Camera.ScreenPointToRay(_currentPos);
-    //    var hit = Physics2D.GetRayIntersection(ray);
-    //    if (hit.collider != null)
-    //    {
-    //        if (hit.transform.TryGetComponent<TileController>(out var tile))
-    //        {
-    //            _startPosition = hit.transform.position;
-    //            _selectedObject = tile;
-    //            _startGridPos = tile.GridPosition;
-    //            _offset = tile.transform.position - (Vector3)hit.point;
-    //            _dragPlane = new Plane(-Camera.transform.forward, hit.point);
-
-    //            _selectedObject.gameObject.layer = 2;
-    //        }
-    //    }
-    //}
-
 
 
     private void OnTouchPress(InputAction.CallbackContext context)
     {
-        if (_isBusy) return;
+        // кидаем рейкаст из позиции курсора
+        //если плитка под курсором была - сохраняем ее, сохраняем ее изначальную позицию
 
-        Camera cam = Camera.main;
-        if (cam == null) return;
-        _currentPos = Pointer.current.position.ReadValue();
-
-        Vector3 worldPoint = cam.ScreenToWorldPoint(new Vector3(_currentPos.x, _currentPos.y, Mathf.Abs(cam.transform.position.z)));
+        var pos = Pointer.current.position.ReadValue();
+        Vector3 worldPoint = Camera.ScreenToWorldPoint(new Vector3(pos.x, pos.y, Camera.main.nearClipPlane));
         RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
-
         if (hit.collider != null)
         {
-            if (hit.transform.TryGetComponent<TileController>(out var tile))
+            if (hit.transform.TryGetComponent<Tile>(out var tile))
             {
-                _selectedObject = tile;
-                _startPosition = tile.transform.position;
-                _startGridPos = tile.GridPosition;
-                Vector3 hitPoint2D = new Vector3(hit.point.x, hit.point.y, _startPosition.z);
-                _offset = _startPosition - hitPoint2D;
-                _selectedObject.gameObject.layer = 2;
+                Source = tile;
+                SourceStartPos = tile.transform.position;
+                Source.gameObject.layer = 2;
             }
         }
     }
 
     private void OnTouchRelease(InputAction.CallbackContext context)
     {
-        Debug.Log(_selectedObject is null);
-        if (_selectedObject is not null)
+        // если не была записана таргет плитка - вернуть плитку на свою позицию, 
+        //иначе записываем в структуру стартовые и текщие позиции, отправляем ивент
+        if (Source is null) return;
+        if (Dest is null)
         {
-            Vector3 rayOrigin = _selectedObject.transform.position;
-            rayOrigin.z = Camera.transform.position.z;
-            Ray ray = new Ray(rayOrigin, Camera.transform.forward);
-
-            var hit = Physics2D.GetRayIntersection(ray);
-            if (hit.collider != null && hit.transform != _selectedObject)
-            {
-                var to = hit.transform.GetComponent<TileController>();
-                var ctx = new TransitionContext
-                {
-                    Type = StateEvent.MoveTiles,
-                    From = _selectedObject,
-                    To = to,
-                    PositionFrom = _startGridPos,
-                    PositionTo = to.GridPosition
-                };
-
-                var name = Events.GetBusName(GameEvent.Input);
-                GameplayEventBus<TransitionContext>.Trigger(name, ctx);
-
-                //OnDragCompleted?.Invoke(ctx);
-            } else
-            {
-                _selectedObject.transform.position = _startPosition;
-            }
-            _selectedObject.gameObject.layer = 0;
+            Source.transform.position = SourceStartPos;
+            Source.gameObject.layer = 0;
+            return;
         }
-        
-        _selectedObject = null;
-    }
 
-    //private void OnTouchPosition(InputAction.CallbackContext context)
-    //{
-    //    _currentPos = context.ReadValue<Vector2>();
-    //    if (_selectedObject is not null)
-    //    {
-    //        var ray = Camera.ScreenPointToRay(_currentPos);
-    //        if (_dragPlane.Raycast(ray, out var distance))
-    //        {
-    //            var targetPos = ray.GetPoint(distance) + _offset;
-    //            var heading = targetPos - _startPosition;
-    //            if (Mathf.Abs(heading.x) > Mathf.Abs(heading.y))
-    //            {
-    //                heading.y = 0;
-    //                heading.x = Mathf.Clamp(heading.x, -1f, 1f);
-    //            }
-    //            else
-    //            {
-    //                heading.x = 0;
-    //                heading.y = Mathf.Clamp(heading.y, -1f, 1f); 
-    //            }
+        var data = new SwapInfo
+        {
+            SourceId = Source.Id,
+            DestId = Dest.Id
+        };
 
-    //            _selectedObject.transform.position = new Vector3(
-    //                _startPosition.x + heading.x,
-    //                _startPosition.y + heading.y,
-    //                _startPosition.z
-    //            );
-    //        }
-    //    }
-    //}
+        Source.transform.position = DestStartPos;
+        Dest.transform.position = SourceStartPos;
+
+        Source.gameObject.layer = 0;
+        Dest.gameObject.layer = 0;
+
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<SwapInfo>.Trigger(name, data);
+    } 
 
     private void OnTouchPosition(InputAction.CallbackContext context)
     {
-        _currentPos = context.ReadValue<Vector2>();
+        //позиция плитки меняется вслед за позицией курсора
+        //с ограничениями : не больше 1 стандартной длины(? типа до соседа)
+        //                  только по вертикали и горизонтали.
+        //если плитка на соседе - сосед прыгает на стартовую позицию перетаскиваемой плитки.
+        //если курсор уносит с позиции - сосед прыгает обратно
+        var pos = context.ReadValue<Vector2>();
+        Vector3 worldPoint = Camera.ScreenToWorldPoint(new Vector3(pos.x, pos.y, Camera.main.nearClipPlane));
 
-        if (_selectedObject is not null)
+        if (Source is null) { return; }
+
+        if (Dest is null)
         {
-            Camera cam = Camera.main;
-            if (cam == null) return;
-
-            Vector3 worldPoint = cam.ScreenToWorldPoint(new Vector3(_currentPos.x, _currentPos.y, Mathf.Abs(cam.transform.position.z)));
-
-            Vector3 targetPos = worldPoint + _offset;
-
-            Vector3 heading = targetPos - _startPosition;
-
-            if (Mathf.Abs(heading.x) > Mathf.Abs(heading.y))
+            RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
+            if (hit.collider != null)
             {
-                heading.y = 0;
-                heading.x = Mathf.Clamp(heading.x, -1f, 1f);
+                if (hit.transform.TryGetComponent<Tile>(out var tile))
+                {
+                    Dest = tile;
+                    DestStartPos = tile.transform.position;
+                    Dest.transform.position = SourceStartPos;
+                    Dest.gameObject.layer = 2;
+                    return;
+                }
             }
-            else
-            {
-                heading.x = 0;
-                heading.y = Mathf.Clamp(heading.y, -1f, 1f);
-            }
-
-            _selectedObject.transform.position = new Vector3(
-                _startPosition.x + heading.x,
-                _startPosition.y + heading.y,
-                _startPosition.z
-            );
         }
+
+        //надо проверять находится ли еще плитка сорс в позиции или рядом с дест и если нет - возвращать дест обратно и занулять.
+        //тогда следущий рейкаст проверит новую плитку и поставит ее в сорс и поменяет ее позицию на стартовую сорса
+        if (Vector2.Distance(worldPoint, DestStartPos) > 1.2f) // 1.2f ≈ размер клетки + небольшой допуск
+        {
+            Dest.transform.position = DestStartPos;
+            Dest.gameObject.layer = 0;
+            Dest = null;
+            DestStartPos = Vector3.zero;
+        }
+
+        float dx = worldPoint.x - SourceStartPos.x;
+        float dy = worldPoint.y - SourceStartPos.y;
+
+        // Только по одной оси: выбираем доминирующее направление
+        if (Mathf.Abs(dx) > Mathf.Abs(dy))
+        {
+            dy = 0; 
+            dx = Mathf.Clamp(dx, -1f, 1f); 
+        }
+        else
+        {
+            dx = 0;
+            dy = Mathf.Clamp(dy, -1f, 1f);
+        }
+
+        Source.transform.position = new Vector3(SourceStartPos.x + dx, SourceStartPos.y + dy, SourceStartPos.z);
     }
 }

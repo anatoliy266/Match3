@@ -1,86 +1,123 @@
+using System;
+using System.Buffers; // Обязательно для работы с ArrayPool
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-
-
-//public abstract class TileSpawnRuleBase : ScriptableObject
-//{
-//    [Tooltip("Размер сетки (ширина, высота)")]
-//    public Vector2Int gridSize;
-//    public List<Vector2Int> activeCells;
-//    [Req]public TileType Type;
-//    public abstract bool IsMatch(IEnumerable<Vector2Int> cells);
-//}
 
 public abstract class TileSpawnRuleBase : ScriptableObject
 {
-    [Tooltip("Размер сетки (ширина, высота)")]
-    public Vector2Int gridSize;
+    [Tooltip("Эталонная фигура из инспектора")]
     public List<Vector2Int> activeCells;
+
+    [Tooltip("Крутить ли фигуру на 90, 180, 270 градусов при проверке")]
     public bool CheckRotations;
 
-    // [Req] сохраняем ваш кастомный атрибут, если он необходим
-    public TileType Type;
+    [Tooltip("Какой бонус спавнить, если геометрия совпала")]
+    public BonusType BonusType;
 
-    /// <summary>
-    /// Универсальный метод нормализации координат любой фигуры.
-    /// </summary>
-    public HashSet<Vector2Int> Normalize(HashSet<Vector2Int> cells)
+    // Сигнатура под твой List<Vector2Int> из BFS
+    public virtual bool IsMatch(List<Vector2Int> groupCells)
     {
-        if (cells == null || cells.Count == 0) return new HashSet<Vector2Int>();
+        if (groupCells == null || activeCells == null) return false;
 
-        // ИСПРАВЛЕНО: Теперь минимумы ищутся строго в переданной коллекции cells
-        int minX = int.MaxValue, minY = int.MaxValue;
-        foreach (var c in cells)
-        {
-            if (c.x < minX) minX = c.x;
-            if (c.y < minY) minY = c.y;
-        }
+        int count = activeCells.Count;
+        if (groupCells.Count != count) return false;
 
-        var normalized = new HashSet<Vector2Int>();
-        foreach (var c in cells)
-            normalized.Add(new Vector2Int(c.x - minX, c.y - minY));
+        if (CheckShapeMatch(groupCells, activeCells)) return true;
 
-        return normalized;
-    }
-
-    /// <summary>
-    /// Сделан virtual вместо abstract, чтобы содержать общую для всех бонусов логику сопоставления.
-    /// </summary>
-    public virtual bool IsMatch(IEnumerable<Vector2Int> cells)
-    {
-        if (cells == null) return false;
-
-        var inputCells = new HashSet<Vector2Int>(cells);
-        var inputNormalized = Normalize(inputCells);
-
-        var referenceNormalized = Normalize(activeCells.ToHashSet());
-        if (referenceNormalized.Count != inputNormalized.Count) return false;
-
-        // Проверяем совпадение с учетом всех 4 поворотов
         if (CheckRotations)
-            return GetAllRotations(referenceNormalized).Any(rotated => rotated.SetEquals(inputNormalized));
-        return referenceNormalized.SetEquals(inputNormalized);
-    }
-
-    private IEnumerable<HashSet<Vector2Int>> GetAllRotations(HashSet<Vector2Int> shape)
-    {
-        HashSet<Vector2Int> current = shape;
-        yield return current;
-
-        for (int i = 0; i < 3; i++)
         {
-            current = Rotate90Clockwise(current);
-            yield return current;
+            for (int rotation = 1; rotation <= 3; rotation++)
+            {
+                if (CheckShapeMatchRotated(groupCells, activeCells, rotation)) return true;
+            }
         }
+        return false;
     }
 
-    private HashSet<Vector2Int> Rotate90Clockwise(HashSet<Vector2Int> shape)
+    private bool CheckShapeMatch(List<Vector2Int> input, List<Vector2Int> reference)
     {
-        var rotated = new HashSet<Vector2Int>();
-        foreach (var p in shape)
-            rotated.Add(new Vector2Int(p.y, -p.x));
+        Vector2Int inputMin = GetMinBounds(input);
+        Vector2Int refMin = GetMinBounds(reference);
 
-        return Normalize(rotated);
+        for (int i = 0; i < input.Count; i++)
+        {
+            Vector2Int normInput = input[i] - inputMin;
+            bool found = false;
+
+            for (int j = 0; j < reference.Count; j++)
+            {
+                Vector2Int normRef = reference[j] - refMin;
+                if (normInput == normRef)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+        return true;
+    }
+
+    private bool CheckShapeMatchRotated(List<Vector2Int> input, List<Vector2Int> reference, int rotationSteps)
+    {
+        int count = reference.Count;
+        Vector2Int inputMin = GetMinBounds(input);
+
+        Vector2Int[] rotatedRef = ArrayPool<Vector2Int>.Shared.Rent(count);
+
+        int minX = int.MaxValue;
+        int minY = int.MaxValue;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector2Int p = reference[i];
+
+            for (int r = 0; r < rotationSteps; r++)
+                p = new Vector2Int(p.y, -p.x);
+
+            rotatedRef[i] = p;
+
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+        }
+        Vector2Int refMin = new Vector2Int(minX, minY);
+
+        bool isMatch = true;
+        for (int i = 0; i < input.Count; i++)
+        {
+            Vector2Int normInput = input[i] - inputMin;
+            bool found = false;
+
+            for (int j = 0; j < count; j++)
+            {
+                Vector2Int normRef = rotatedRef[j] - refMin;
+                if (normInput == normRef)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                isMatch = false;
+                break;
+            }
+        }
+
+        ArrayPool<Vector2Int>.Shared.Return(rotatedRef);
+        return isMatch;
+    }
+
+    private Vector2Int GetMinBounds(List<Vector2Int> cells)
+    {
+        int minX = int.MaxValue;
+        int minY = int.MaxValue;
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (cells[i].x < minX) minX = cells[i].x;
+            if (cells[i].y < minY) minY = cells[i].y;
+        }
+        return new Vector2Int(minX, minY);
     }
 }

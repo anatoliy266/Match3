@@ -7,7 +7,7 @@ namespace Assets.Game.Components
 	[Serializable]
 	public class TileSpawnChance 
 	{
-		public TileType Type;
+		public RegularType Type;
 		public float SpawnChance;
 		public float currentChance;
 	}

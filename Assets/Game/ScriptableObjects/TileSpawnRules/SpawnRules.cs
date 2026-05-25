@@ -8,7 +8,7 @@ using UnityEngine;
 public class TileTypeSpawnRuleMapping
 {
     [Tooltip("Тип тайла")]
-    public TileType tileType;
+    public BonusType tileType;
 
     [Tooltip("Правила, которые применяются к этому типу")]
     public List<TileSpawnRuleBase> rules;
@@ -20,8 +20,8 @@ public class SpawnRules : ScriptableObject
     [SerializeField]
     private List<TileTypeSpawnRuleMapping> mappings;
 
-    // Для быстрого доступа можно построить словарь в рантайме
-    private Dictionary<TileType, List<TileSpawnRuleBase>> lookup;
+    private Dictionary<int, IReadOnlyList<TileSpawnRuleBase>> bonusLookup;
+    private readonly IReadOnlyList<TileSpawnRuleBase> EmptyRules = new List<TileSpawnRuleBase>().AsReadOnly();
 
     private void OnEnable()
     {
@@ -30,28 +30,49 @@ public class SpawnRules : ScriptableObject
 
     private void BuildLookup()
     {
-        lookup = new Dictionary<TileType, List<TileSpawnRuleBase>>();
+        var workingLookup = new Dictionary<int, List<TileSpawnRuleBase>>();
+
         if (mappings == null) return;
-        foreach (var mapping in mappings)
+
+        for (var i = 0; i < mappings.Count; i++)
         {
-            if (mapping.rules != null && mapping.rules.Count > 0)
-                lookup[mapping.tileType] = mapping.rules;
+            var mapping = mappings[i];
+            if (mapping.rules is null) continue;
+
+            for (var j = 0; j < mapping.rules.Count; j++)
+            {
+                var rule = mapping.rules[j];
+                if (rule.activeCells is null) continue;
+
+                int count = rule.activeCells.Count;
+
+                if (workingLookup.TryGetValue(count, out var list))
+                {
+                    if (!list.Contains(rule))
+                    {
+                        list.Add(rule);
+                    }
+                }
+                else
+                {
+                    workingLookup[count] = new List<TileSpawnRuleBase> { rule };
+                }
+            }
+        }
+        bonusLookup = new Dictionary<int, IReadOnlyList<TileSpawnRuleBase>>();
+        foreach (var kvp in workingLookup)
+        {
+            bonusLookup[kvp.Key] = kvp.Value;
         }
     }
 
+
     /// <summary>Возвращает все правила для указанного типа тайла</summary>
-    public List<TileSpawnRuleBase> GetRules(TileType type)
+    public IReadOnlyList<TileSpawnRuleBase> GetRules(int groupCount)
     {
-        if (lookup == null) BuildLookup();
-        lookup.TryGetValue(type, out var rules);
-        return rules ?? new List<TileSpawnRuleBase>();
+        if (mappings == null) return EmptyRules;
+        if (bonusLookup == null) return EmptyRules;
+        if (!bonusLookup.TryGetValue(groupCount, out var rules)) return EmptyRules;
+        return rules;
     }
-
-    public TileSpawnRuleBase GetRule(TileType type)
-    {
-        var rules = GetRules(type);
-        return rules.Count > 0 ? rules[0] : null;
-    }
-
-    
 }

@@ -8,175 +8,83 @@ using UnityEngine.Video;
 
 public struct MatchInfo
 {
-    public TileType Type;
-    public HashSet<Vector2Int> Positions;
+    public TileKind GroupType;
+    public List<Guid> Positions;
     public int Count => Positions.Count;
 }
 
-[CreateAssetMenu(fileName = "MatchEvaluator", menuName = "Scriptable Objects/MatchEvaluator")]
-public class MatchEvaluator : ScriptableObject
+//проверяет поле на наличие совпадений по правилам
+public class MatchEvaluator
 {
-    public MatchRules MatchRules;
-    [ThreadStatic] private static Queue<Vector2Int> _queue;
+    [ThreadStatic] private static Queue<Vector2Int> _queue = new Queue<Vector2Int>();
 
-
-    public List<MatchInfo> FindAll(TileController.Snapshot?[,] board)
+    //идет по полю и проверяет плитки на совпадение по цвету через бфс, возвращает список групп
+    public void Evaluate(LogicalTile?[,] snapshot, MatchRules rules, List<MatchInfo> matches)
     {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
 
-        var groups = new List<MatchInfo>();
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-        Array.Clear(visited, 0, rows * cols);
+        var visited = ArrayPool<bool>.Shared.Rent(r * c);
 
-        for (var r = 0; r < rows; r++)
+        Array.Clear(visited, 0, visited.Length);
+        _queue.Clear();
+
+        for (var i = 0; i < r; i++)
         {
-            for (var c = 0; c < cols; c++)
+            for (var j = 0; j < c; j++)
             {
-                if (board[r, c] is null || visited[r * cols + c]) continue;
-                if (board[r, c] is not null && board[r, c].Value.IsBonus) continue;
+                if (snapshot[i, j] is null) continue;
+                if (snapshot[i, j].Value.Type.KindType == TileKindType.Bonus) continue;
+                if (visited[i * c + j]) continue;
 
-                var group = GroupAt(board, board[r, c].Value.GridPosition);
-
-                foreach (var pos in group)
+                var pos = new Vector2Int(i, j);
+                var type = snapshot[i, j].Value.Type;
+                var tileRules = rules.GetRules(type);
+                var group = new List<Guid>();
+                var data = new AlgoritmContext
                 {
-                    visited[pos.x * cols + pos.y] = true;
-                }
+                    Field = snapshot,
+                    Queue = _queue,
+                    Visited = visited,
+                    Rules = tileRules,
+                };
+                BFS.Run(pos, data, group);
 
                 if (group.Count > 2)
                 {
-                    var matchInfo = new MatchInfo
-                    {
-                        Type = board[r, c].Value.Type,
-                        Positions = group
-                    };
-                    groups.Add(matchInfo);
+                    matches.Add(new MatchInfo { GroupType = type, Positions = group });
                 }
-
             }
         }
         ArrayPool<bool>.Shared.Return(visited);
-        return groups;
     }
 
-    public List<MatchInfo> FindAllBonuses(TileController.Snapshot?[,] board, Vector2Int startPos)
-    {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
-        //ищем по бонусу и его правилу все совпадения, если в совпадениях бонуса был найден другой бонус - ищем его тоже но
-        //добавляем только ячейки которые не были до этого задеты другим бонусом
-        var type = board[startPos.x, startPos.y].Value.Type;
-        
-        var groups = new List<MatchInfo>();
-        if (type != TileType.Bomb && type != TileType.VerticalBomb && type != TileType.HorizontalBomb) return groups;
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+    public void GetBonusGroupAt(LogicalTile?[,] snapshot, Vector2Int position, MatchRules rules, List<MatchInfo> groups)
+    {
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+
+        var visited = ArrayPool<bool>.Shared.Rent(r * c);
         Array.Clear(visited, 0, visited.Length);
 
-        var queue = new Queue<Vector2Int>();
-        queue.Enqueue(startPos);
+        if (snapshot[position.x, position.y] is null) return;
+        var type = snapshot[position.x, position.y].Value.Type;
+        if (type.KindType == TileKindType.Regular) return;
 
-        while (queue.Count > 0)
+        var tileRules = rules.GetRules(type);
+        var group = new List<Guid>();
+        var data = new AlgoritmContext
         {
-            var currPos = queue.Dequeue();
+            Field = snapshot,
+            Queue = _queue,
+            Visited = visited,
+            Rules = tileRules,
+        };
+        BFS.Run(position, data, group);
 
-            var group = GroupAt(board, currPos);
-            if (group.Count < 3) continue;
-
-            var cleanGroup = new MatchInfo { Type = board[startPos.x, startPos.y].Value.Type, Positions = new HashSet<Vector2Int>()};
-            foreach (var pos in group)
-            {
-                if (!visited[pos.x * cols + pos.y])
-                {
-                    if (board[pos.x, pos.y].Value.IsBonus) queue.Enqueue(pos);
-                    cleanGroup.Positions.Add(pos);
-                    visited[pos.x * cols + pos.y] = true;
-                }
-
-            }
-            if (cleanGroup.Positions.Count > 0)
-                groups.Add(cleanGroup);
-        }
         ArrayPool<bool>.Shared.Return(visited);
-        return groups;
-    }
-
-    public (Vector2Int pos1, Vector2Int pos2)? FindAvailableHint(TileController.Snapshot?[,] snapshot)
-    {
-        var (rows, cols) = (snapshot.GetLength(0), snapshot.GetLength(1));
-
-        for (var i = 0; i < rows; i++)
-        {
-            for (var j = 0; j < cols; j++)
-            {
-                if (snapshot[i, j] == null) continue;
-
-                // ВПРАВО (j + 1)
-                if (j + 1 < cols && snapshot[i, j + 1] != null)
-                {
-                    (snapshot[i, j], snapshot[i, j + 1]) = (snapshot[i, j + 1], snapshot[i, j]);
-
-                    if (GroupSizeAt(snapshot, new Vector2Int(i, j)) >= 3 ||
-                        GroupSizeAt(snapshot, new Vector2Int(i, j + 1)) >= 3)
-                    {
-                        return (new Vector2Int(i, j), new Vector2Int(i, j + 1));
-                    }
-
-                    (snapshot[i, j], snapshot[i, j + 1]) = (snapshot[i, j + 1], snapshot[i, j]);
-                }
-
-                // ВНИЗ (i + 1)
-                if (i + 1 < rows && snapshot[i + 1, j] != null)
-                {
-                    (snapshot[i, j], snapshot[i + 1, j]) = (snapshot[i + 1, j], snapshot[i, j]);
-
-                    if (GroupSizeAt(snapshot, new Vector2Int(i, j)) >= 3 ||
-                        GroupSizeAt(snapshot, new Vector2Int(i + 1, j)) >= 3)
-                    {
-                        return (new Vector2Int(i, j), new Vector2Int(i + 1, j));
-                    }
-
-                    (snapshot[i, j], snapshot[i + 1, j]) = (snapshot[i + 1, j], snapshot[i, j]);
-                }
-            }
-        }
-        return null; 
-    }
-
-
-    public HashSet<Vector2Int> GroupAt(TileController.Snapshot?[,] board, Vector2Int start)
-    {
-        try
-        {
-            if (start.x == -1 || start.y == -1) { Debug.Log($"-1 : {start.x}, {start.y}"); }
-            var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-            var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
-            return group;
-        } catch (Exception ex)
-        {
-            Debug.LogException(ex);
-            Debug.Log(board[start.x, start.y].Value.Type);
-            Debug.Log($"{start.x}, {start.y}");
-            throw new Exception();
-        }
-    }
-
-    public int GroupSizeAt(TileController.Snapshot?[,] board, Vector2Int start)
-    {
-        if (start.x < 0 || start.x >= board.GetLength(0) ||
-            start.y < 0 || start.y >= board.GetLength(1))
-            return 0;
-        if (board[start.x, start.y] == null) return 0;
-
-        var rows = board.GetLength(0);
-        var cols = board.GetLength(1);
-
-        var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-
-        var count = BFS.Run(board, start, rule.IsMatch).Count;
-
-
-        return count;
+        groups.Add(new MatchInfo { GroupType = type, Positions = group });
     }
 }
-
 
