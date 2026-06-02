@@ -43,7 +43,7 @@ public class MatchEvaluator
                 var group = new List<Guid>();
                 var data = new AlgoritmContext
                 {
-                    Field = snapshot,
+                    Snapshot = snapshot,
                     Queue = _queue,
                     Visited = visited,
                     Rules = tileRules,
@@ -76,7 +76,7 @@ public class MatchEvaluator
         var group = new List<Guid>();
         var data = new AlgoritmContext
         {
-            Field = snapshot,
+            Snapshot = snapshot,
             Queue = _queue,
             Visited = visited,
             Rules = tileRules,

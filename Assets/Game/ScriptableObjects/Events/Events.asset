@@ -17,5 +17,13 @@ MonoBehaviour:
     busName: Input
   - eventID: 1
     busName: Animation
-  - eventID: 2
+  - eventID: 3
     busName: Score
+  - eventID: 4
+    busName: ShaderImpact
+  - eventID: 5
+    busName: ShaderDestroyTile
+  - eventID: 6
+    busName: FieldSettled
+  - eventID: 2
+    busName: AnimationEnd

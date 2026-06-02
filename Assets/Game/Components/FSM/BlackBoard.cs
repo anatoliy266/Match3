@@ -13,12 +13,12 @@ public class FieldBlackboard
     // ==========================================
     // 2. ДАННЫЕ ДЛЯ МАТЧЕЙ (Записывает MatchState, читает DestroyState)
     // ==========================================
-    public List<MatchInfo> CurrentMatches { get; set; }
+    public List<MatchInfo> CurrentMatches { get; set; } = new List<MatchInfo>();
 
     // ==========================================
     // 2. ДАННЫЕ ДЛЯ БОНУСОВ (Записывает MatchState, читает FillUpState)
     // ==========================================
-    public List<SpawnInfo> CurrentBonuses { get; internal set; }
+    public List<SpawnInfo> CurrentBonuses { get; set; } = new List<SpawnInfo>();
 
     // ==========================================
     // 3. СОСТОЯНИЕ ТЕКУЩЕГО ХОДА И ИГРЫ
@@ -28,10 +28,11 @@ public class FieldBlackboard
 
     // Флаг для проверки окончания игры (Game Over)
     public bool HasAvailableMoves { get; set; }
+    public int Step { get; internal set; }
 
     // Данные для подсказки игроку
     //public HintInfo CurrentHint { get; set; }
-    
+
 
 
     // ==========================================
@@ -43,6 +44,9 @@ public class FieldBlackboard
         // Очищаем список матчей, чтобы не держать ссылки в памяти
         CurrentMatches?.Clear();
         CurrentMatches = null;
+
+        CurrentBonuses?.Clear();
+        CurrentBonuses = null;
 
         // Сбрасываем счетчик комбо
         CascadeIteration = 0;

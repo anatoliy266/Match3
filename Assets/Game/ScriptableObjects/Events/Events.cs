@@ -5,7 +5,11 @@ public enum GameEvent
 {
     Input,
     Animation,
-    Score
+    AnimationEnd,
+    Score,
+    ShaderImpact,
+    ShaderDestroyTile,
+    FieldSettled
 }
 
 

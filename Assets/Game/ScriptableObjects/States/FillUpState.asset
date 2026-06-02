@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ab5ce6a871e714baaa59fba9052d98, type: 3}
+  m_Name: FillUpState
+  m_EditorClassIdentifier: Assembly-CSharp::FillUpState
+  Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
+  SpawnRules: {fileID: 11400000, guid: 5ea962db087fe93438785012cb47227c, type: 2}
+  MatchRules: {fileID: 11400000, guid: 40a2388486a6756409eedc8363a906ba, type: 2}

@@ -12,24 +12,21 @@ public static class TwoPointers
 {
     public static void Run(Vector2Int startPos, AlgoritmContext context, List<TileTransitionData> groupResult)
     {
-        var (r, c) = (context.Field.GetLength(0), context.Field.GetLength(1));
-
-        var (read, write) = (0, 0);
-        while (read < r)
+        var r = context.Snapshot.GetLength(0);
+        var col = startPos.y;
+        var write = 0;
+        for (var read = 0; read < r; read++)
         {
-            while (context.Field[write, startPos.y] is not null && write < r) write++;
-
-            if (context.Field[read, startPos.y] is not null && read > write)
+            if (context.Snapshot[read, col] is null) continue;
+            if (read != write)
             {
-                var data = new TileTransitionData
+                groupResult.Add(new TileTransitionData
                 {
-                    From = new Vector2Int(read, startPos.y),
-                    To = new Vector2Int(write, startPos.y)
-                };
-                groupResult.Add(data);
-                write++;
+                    From = new Vector2Int(read, col),
+                    To = new Vector2Int(write, col)
+                });
             }
-            read++;
+            write++;
         }
     }
 }

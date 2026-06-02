@@ -12,7 +12,7 @@ public struct SpawnInfo
 }
 
 
-public class SpawnEvaluator : ScriptableObject
+public class SpawnEvaluator
 {
     //выбор обычной фишки
     //надо както предиктивно считать какой тип выбрать чтобы не было бесконечных совпадений и доска "усложнялась" после каждой итерации
@@ -25,9 +25,10 @@ public class SpawnEvaluator : ScriptableObject
             {
                 if (snapshot[i, j] is not null) continue;
 
-                // както по умному выбирает тип фишки для спавна по коммон правилу спавна
+                // todo: както по умному выбирает тип фишки для спавна по коммон правилу спавна
                 // в коммон правиле - что должно быть?
-                var type = RegularType.Yellow;
+                var values = System.Enum.GetValues(typeof(RegularType));
+                var type = (RegularType)values.GetValue(UnityEngine.Random.Range(0, values.Length));
 
                 var spawn = new SpawnInfo
                 {

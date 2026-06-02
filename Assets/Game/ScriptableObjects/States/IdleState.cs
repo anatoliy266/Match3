@@ -1,4 +1,5 @@
 using System;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -17,15 +18,21 @@ public struct SwapInfo
 }
 
 
+
+
 [CreateAssetMenu(fileName = "IdleState", menuName = "Scriptable Objects/IdleState")]
 public class IdleState : GameState
 {
     [Req] public Events Events;
     public override void Enter(FiniteStateMachine machine)
     {
+        _fsm = machine;
         var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, true);
         GameplayEventBus<SwapInfo>.Register(name, OnFieldEvent);
+
+        var fieldSettledBusName = Events.GetBusName(GameEvent.FieldSettled);
+        GameplayEventBus<int>.Trigger(fieldSettledBusName, _fsm.Blackboard.Step);
     }
 
     public void OnFieldEvent(SwapInfo eventData)
@@ -33,8 +40,7 @@ public class IdleState : GameState
         var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, false);
         GameplayEventBus<SwapInfo>.Unregister(name, OnFieldEvent);
-
-
+        _fsm.Blackboard.Step++;
         _fsm.Blackboard.SourceDest = eventData;
 
         _fsm.Switch(StateEvent.MoveTiles);

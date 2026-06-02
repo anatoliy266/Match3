@@ -7,6 +7,8 @@ using static UnityEngine.Rendering.DebugUI.Table;
 [CreateAssetMenu(fileName = "LoadingState", menuName = "Scriptable Objects/LoadingState")]
 public class LoadingState : GameState
 {
+    [Req] public MatchRules MatchRules;
+    [Req] public SpawnRules SpawnRules;
     [Req] public Events Events;
     public override void Enter(FiniteStateMachine machine)
     {
@@ -26,17 +28,17 @@ public class LoadingState : GameState
                     //todo: сделать неслучайный спавн
                     Type = TileKind.Regular((RegularType)UnityEngine.Random.Range(0,6))
                 };
-                _fsm.Field.SetTileAt(new Vector2Int(i, j), tile);
+                machine.Field.SetTileAt(new Vector2Int(i, j), tile);
             }
         }
 
-        var animname = Events.GetBusName(GameEvent.Animation);
-        var snapshot = _fsm.Field.ToSnapshot();
+        var animname = Events.GetBusName(GameEvent.AnimationEnd);
+        var snapshot = machine.Field.ToSnapshot();
 
         
 
         GameplayEventBus<LogicalTile?[,]>.Trigger(animname, snapshot);
 
-        _fsm.Switch(StateEvent.FinishLoading);
+        machine.Switch(StateEvent.FinishLoading);
     }
 }

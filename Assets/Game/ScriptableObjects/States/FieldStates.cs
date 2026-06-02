@@ -39,7 +39,9 @@ public enum StateEvent
     HasMoves,
     NoMovesLeft,
     SwapBack,
-    SpawnBonus
+    SpawnBonus,
+    SwapBonus,
+    AnimationEnd
 }
 
 

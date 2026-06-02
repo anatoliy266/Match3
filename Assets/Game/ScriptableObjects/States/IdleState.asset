@@ -12,3 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e872acd7ddefda44b18bd2f7065e693, type: 3}
   m_Name: IdleState
   m_EditorClassIdentifier: Assembly-CSharp::IdleState
+  Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}

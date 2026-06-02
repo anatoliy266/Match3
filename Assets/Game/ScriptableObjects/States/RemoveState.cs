@@ -13,7 +13,10 @@ public class RemoveState : GameState
 
     public override void Enter(FiniteStateMachine machine)
     {
+        var prevSnapshot = machine.Field.ToSnapshot();
+
         var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
         machine.Field.ToPositionChache(positionsCache);
 
 
@@ -26,15 +29,21 @@ public class RemoveState : GameState
                 var id = match.Positions[j];
                 if (positionsCache.TryGetValue(id, out var pos))
                 {
-                    //todo как будто не хватает очистки словаря на всякий случай
                     machine.Field.ClearTileAt(pos);
                 }
             }
         }
 
-        var name = Events.GetBusName(GameEvent.Animation);
         var snapshot = machine.Field.ToSnapshot();
+
+        var name = Events.GetBusName(GameEvent.AnimationEnd);
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        var shaderBusName = Events.GetBusName(GameEvent.ShaderImpact);
+        GameplayEventBus<(LogicalTile?[,], LogicalTile?[,])>.Trigger(shaderBusName, (prevSnapshot, snapshot));
+
+        var shaderScore = Events.GetBusName(GameEvent.Score);
+        GameplayEventBus<(LogicalTile?[,], LogicalTile?[,])>.Trigger(shaderScore, (prevSnapshot, snapshot));
 
         DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 

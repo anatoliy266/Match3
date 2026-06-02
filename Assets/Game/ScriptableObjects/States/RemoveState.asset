@@ -12,3 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 229b81c8ff8392e48a49b299f141d4ba, type: 3}
   m_Name: RemoveState
   m_EditorClassIdentifier: Assembly-CSharp::RemoveState
+  Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}

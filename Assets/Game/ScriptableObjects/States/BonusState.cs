@@ -1,60 +1,74 @@
-//using System.Collections.Generic;
-//using System.Threading.Tasks;
-//using System.Xml.Linq;
-//using Unity.VisualScripting;
-//using UnityEngine;
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Pool;
 
-//[CreateAssetMenu(fileName = "BonusState", menuName = "Scriptable Objects/BonusState")]
-//public class BonusState : GameState
-//{
-//    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
-//    {
-//        Debug.Log("bonus state");
-//        _field = field;
-//        _fsm = machine;
-//        var spawnedBonuses = new HashSet<Tile>();
+[CreateAssetMenu(fileName = "BonusState", menuName = "Scriptable Objects/BonusState")]
+public class BonusState : GameState
+{
+    [Req] public MatchRules MatchRules;
+    [Req] public SpawnRules SpawnRules;
 
-//        foreach (var match in context.Matches)
-//        {
-//            var type = _field.SpawnEvaluator.GetMatchedBonusTile(match.Positions);
-//            if (type is RegularType.Neutral) continue;
+    public override void Enter(FiniteStateMachine machine)
+    {
+        var matches = machine.Blackboard.CurrentMatches;
 
-//            var i = 1;
-//            var p = new Vector2Int(0, 0);
-//            foreach (var pos in match.Positions)
-//            {
-//                if (UnityEngine.Random.Range(0, i++) == 0)
-//                {
-//                    p=pos;
-//                }
-//            }
-//            var info = new SpawnInfo { Type = type, IsBonus = true, Offset = 0, Position = p };
-//            var tile = _field.SpawnTile(info, context.Snapshot, context.CascadeIteration);
-//            _field.UpdateTileOnGrid(p, tile);
-//            spawnedBonuses.Add(tile);
-//        }
+        var snapshot = machine.Field.ToSnapshot();
+        var bounds = machine.Field.GetBounds();
 
-//        AnimateBonusSpawn(spawnedBonuses);
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
+        machine.Field.ToPositionChache(positionsCache);
 
-//        _fsm.Switch(StateEvent.SpawnBonus, context);
-//    }
+        var visited = HashSetPool<Guid>.Get();
+        visited.Clear();
 
-//    private void AnimateBonusSpawn(HashSet<Tile> bonuses)
-//    {
-//        var bonusAnimList = new List<AnimationData>();        
-//        foreach (var bonus in bonuses)
-//        {
-//            var data = new AnimationData
-//            {
-//                Type = AnimationType.SpawnAtPoint,
-//                Target = bonus.transform,
-//                Duration = 1.0f
+        var _bonusQueue = new Queue<Guid>();
+        _bonusQueue.Enqueue(machine.Blackboard.SourceDest.SourceId);
+        _bonusQueue.Enqueue(machine.Blackboard.SourceDest.DestId);
 
-//            };
-//            bonusAnimList.Add(data);
-//        }
+        visited.Add(machine.Blackboard.SourceDest.SourceId);
+        visited.Add(machine.Blackboard.SourceDest.DestId);
 
-//        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-//        GameplayEventBus<List<AnimationData>>.Trigger(name, bonusAnimList);
-//    }
-//}
+
+        while (_bonusQueue.Count > 0)
+        {
+            var id = _bonusQueue.Dequeue();
+            if (!positionsCache.TryGetValue(id, out var pos)) pos = new Vector2Int(-1, -1);
+
+            var startCount = matches.Count;
+
+
+
+            machine.MatchEvaluator.GetBonusGroupAt(snapshot, pos, MatchRules, matches);
+
+            for (var i = startCount; i < matches.Count; i++)
+            {
+                var match = matches[i];
+                for (var j = 0; j < match.Positions.Count; j++)
+                {
+                    var tileId = match.Positions[j];
+                    if (visited.Add(tileId) 
+                        && positionsCache.TryGetValue(tileId, out var tilePos) 
+                        && snapshot[tilePos.x, tilePos.y] is not null && snapshot[tilePos.x, tilePos.y].Value.Type.KindType == TileKindType.Bonus)
+                    {
+                        _bonusQueue.Enqueue(tileId);
+                    }
+                }
+            }
+        }
+
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+        HashSetPool<Guid>.Release(visited);
+
+        if (matches.Count == 0)
+        {
+            machine.Switch(StateEvent.NoMatches);
+        }
+        else
+        {
+            machine.Switch(StateEvent.MatchesFound);
+        }
+    }
+}

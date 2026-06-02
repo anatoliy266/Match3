@@ -12,3 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e736fb1e9f7bd6459f8ab0c8a7bbdb5, type: 3}
   m_Name: SwapState
   m_EditorClassIdentifier: Assembly-CSharp::SwapState
+  Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}

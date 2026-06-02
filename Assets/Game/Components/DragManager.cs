@@ -26,7 +26,7 @@ public class DragManager : MonoBehaviour
     private void OnEnable()
     {
         TrackingAction.action.performed += OnTouchPosition;
-        ClickingAction.action.performed += OnTouchPress;
+        ClickingAction.action.started += OnTouchPress;
         ClickingAction.action.canceled += OnTouchRelease;
         var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Register(name, OnInputEventReceived);
@@ -34,7 +34,6 @@ public class DragManager : MonoBehaviour
 
     private void OnInputEventReceived(bool enable)
     {
-        Debug.Log("inputsystem switch event called");
         if (enable)
         {
             TrackingAction.action.Enable();
@@ -50,7 +49,7 @@ public class DragManager : MonoBehaviour
     private void OnDisable()
     {
         TrackingAction.action.performed -= OnTouchPosition;
-        ClickingAction.action.performed -= OnTouchPress;
+        ClickingAction.action.started -= OnTouchPress;
         ClickingAction.action.canceled -= OnTouchRelease;
         var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Unregister(name, OnInputEventReceived);
@@ -61,9 +60,6 @@ public class DragManager : MonoBehaviour
 
     private void OnTouchPress(InputAction.CallbackContext context)
     {
-        // кидаем рейкаст из позиции курсора
-        //если плитка под курсором была - сохраняем ее, сохраняем ее изначальную позицию
-
         var pos = Pointer.current.position.ReadValue();
         Vector3 worldPoint = Camera.ScreenToWorldPoint(new Vector3(pos.x, pos.y, Camera.main.nearClipPlane));
         RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
@@ -71,6 +67,7 @@ public class DragManager : MonoBehaviour
         {
             if (hit.transform.TryGetComponent<Tile>(out var tile))
             {
+                //Debug.Log($"[DragManager] Source tile found: {tile.Id}");
                 Source = tile;
                 SourceStartPos = tile.transform.position;
                 Source.gameObject.layer = 2;
@@ -87,6 +84,7 @@ public class DragManager : MonoBehaviour
         {
             Source.transform.position = SourceStartPos;
             Source.gameObject.layer = 0;
+            Source = null;
             return;
         }
 
@@ -96,11 +94,18 @@ public class DragManager : MonoBehaviour
             DestId = Dest.Id
         };
 
-        Source.transform.position = DestStartPos;
-        Dest.transform.position = SourceStartPos;
+        //Source.transform.position = DestStartPos;
+        //Dest.transform.position = SourceStartPos;
+        Source.transform.position = SourceStartPos;
+        Dest.transform.position = DestStartPos;
 
         Source.gameObject.layer = 0;
         Dest.gameObject.layer = 0;
+
+        Source = null;
+        Dest = null;
+        SourceStartPos = Vector3.zero;
+        DestStartPos = Vector3.zero;
 
         var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<SwapInfo>.Trigger(name, data);
@@ -116,7 +121,7 @@ public class DragManager : MonoBehaviour
         var pos = context.ReadValue<Vector2>();
         Vector3 worldPoint = Camera.ScreenToWorldPoint(new Vector3(pos.x, pos.y, Camera.main.nearClipPlane));
 
-        if (Source is null) { return; }
+        if (Source is null) return; 
 
         if (Dest is null)
         {
@@ -136,7 +141,7 @@ public class DragManager : MonoBehaviour
 
         //надо проверять находится ли еще плитка сорс в позиции или рядом с дест и если нет - возвращать дест обратно и занулять.
         //тогда следущий рейкаст проверит новую плитку и поставит ее в сорс и поменяет ее позицию на стартовую сорса
-        if (Vector2.Distance(worldPoint, DestStartPos) > 1.2f) // 1.2f ≈ размер клетки + небольшой допуск
+        if (Dest != null && Vector2.Distance(worldPoint, DestStartPos) > 1.2f) // 1.2f ≈ размер клетки + небольшой допуск
         {
             Dest.transform.position = DestStartPos;
             Dest.gameObject.layer = 0;

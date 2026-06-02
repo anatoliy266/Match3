@@ -95,8 +95,8 @@ public class Field : MonoBehaviour
 
     public Guid GenerateUniqueId() => Guid.NewGuid();
 
-    public Vector3 GetWorldPos(int row, int col) => new Vector3(col - _cols / 2, row - _rows / 2, 0);
+    public Vector3 GetWorldPos(int row, int col) => new Vector3(col - (_cols - 1) / 2f, row - (_rows - 1) / 2f, 0);
 
-    public Vector3 GetWorldPos(Vector2Int v) => new Vector3(v.y - _cols / 2, v.x - _rows / 2, 0);
+    public Vector3 GetWorldPos(Vector2Int v) => new Vector3(v.y - (_cols - 1) / 2f, v.x - (_rows - 1) / 2f, 0);
 }
 

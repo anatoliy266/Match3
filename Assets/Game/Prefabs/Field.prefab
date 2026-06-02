@@ -45,10 +45,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7e38024b8996004d8039d4f4100a40b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FieldController
-  Tile: {fileID: 2244516526134990209, guid: de3ef4f075e958d48be2b87a2402839f, type: 3}
-  TileTypeData: {fileID: 11400000, guid: 3270b72b4181f074fa77195bda449bb0, type: 2}
-  MatchEvaluator: {fileID: 11400000, guid: f71fdae53f66f07489f3f6effd15696c, type: 2}
-  SpawnEvaluator: {fileID: 11400000, guid: 4a8846a09b31cde4fbb643f788041b31, type: 2}
 --- !u!114 &5387861373086522829
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -63,5 +59,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FiniteStateMachine
   States: {fileID: 11400000, guid: a2103d0970378ac4ab7d1c44c9aaeb4d, type: 2}
   State: {fileID: 11400000, guid: 2c59d90c367a1944fa4ffb9c564e1432, type: 2}
-  Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
-  _field: {fileID: 1195133249141147018}
+  Field: {fileID: 1195133249141147018}

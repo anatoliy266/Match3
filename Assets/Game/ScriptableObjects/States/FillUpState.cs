@@ -17,7 +17,7 @@ public class FillUpState : GameState
         var snapshot = machine.Field.ToSnapshot();
 
         //спавним бонусы если есть
-        if (machine.Blackboard.CurrentBonuses.Count > 0)
+        if (machine.Blackboard.CurrentBonuses != null && machine.Blackboard.CurrentBonuses.Count > 0)
         {
             var bonuses = machine.Blackboard.CurrentBonuses;
             for (var i = 0; i < bonuses.Count; i++)
@@ -41,7 +41,7 @@ public class FillUpState : GameState
         {
             var ctx = new AlgoritmContext
             {
-                Field = snapshot,
+                Snapshot = snapshot,
             };
             TwoPointers.Run(new Vector2Int(0, j), ctx, transitions);
         }
@@ -65,6 +65,7 @@ public class FillUpState : GameState
 
         //заполнение пустых
         var spawns = CollectionPool<List<SpawnInfo>, SpawnInfo>.Get();
+        spawns.Clear();
         machine.SpawnEvaluator.Evaluate(snapshot, SpawnRules, spawns);
 
         for (var i = 0; i < spawns.Count; i++)
@@ -82,9 +83,9 @@ public class FillUpState : GameState
         }
         CollectionPool<List<SpawnInfo>, SpawnInfo>.Release(spawns);
 
-        var name = Events.GetBusName(GameEvent.Animation);
+        var name = Events.GetBusName(GameEvent.AnimationEnd);
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
 
-        _fsm.Switch(StateEvent.FillUpTiles);
+        machine.Switch(StateEvent.FillUpTiles);
     }
 }

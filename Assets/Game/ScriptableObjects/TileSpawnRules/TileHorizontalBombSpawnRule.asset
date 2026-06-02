@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2c44ae361f3417498d53fefefb88177, type: 3}
   m_Name: TileHorizontalBombSpawnRule
   m_EditorClassIdentifier: Assembly-CSharp::TileHorizontalBombSpawnRule
-  gridSize: {x: 4, y: 4}
   activeCells:
   - {x: 0, y: 0}
   - {x: 1, y: 0}
   - {x: 2, y: 0}
   - {x: 3, y: 0}
-  Type: 9
+  CheckRotations: 0
+  BonusType: 2

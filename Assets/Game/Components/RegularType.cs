@@ -1,9 +1,11 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public enum RegularType { Red, Green, Blue, Yellow, Orange, Purple }
 public enum BonusType { Bomb, VerticalBomb, HorizontalBomb, ColorBomb }
 public enum TileKindType { Regular, Bonus }
 
+[Serializable]
 public struct TileKind
 {
     public TileKindType KindType;

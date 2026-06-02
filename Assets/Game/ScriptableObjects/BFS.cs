@@ -4,7 +4,7 @@ using UnityEngine;
 
 public struct AlgoritmContext
 {
-    public LogicalTile?[,] Field;
+    public LogicalTile?[,] Snapshot;
     public IReadOnlyList<TileMatchRuleBase> Rules;
     public Queue<Vector2Int> Queue;
     public bool[] Visited;
@@ -21,12 +21,12 @@ public static class BFS
     public static void Run(Vector2Int startPos, AlgoritmContext context, List<Guid> groupResult)
     {
         // 1. Проверяем стартовую плитку
-        if (context.Field[startPos.x, startPos.y] is not LogicalTile startTile) return;
+        if (context.Snapshot[startPos.x, startPos.y] is not LogicalTile startTile) return;
 
         if (context.Rules.Count == 0) return;
 
-        int rows = context.Field.GetLength(0);
-        int cols = context.Field.GetLength(1);
+        int rows = context.Snapshot.GetLength(0);
+        int cols = context.Snapshot.GetLength(1);
 
         // 2. Настраиваем старт
         var sourceSnapshot = new TileSnapshot(startPos, startTile.Type);
@@ -38,7 +38,7 @@ public static class BFS
         while (context.Queue.Count > 0)
         {
             Vector2Int currentPos = context.Queue.Dequeue();
-            LogicalTile currentTile = context.Field[currentPos.x, currentPos.y].Value;
+            LogicalTile currentTile = context.Snapshot[currentPos.x, currentPos.y].Value;
             var currentSnapshot = new TileSnapshot(currentPos, currentTile.Type);
             for (int d = 0; d < Directions.Length; d++)
             {
@@ -51,7 +51,7 @@ public static class BFS
 
                 // Проверка на посещение и существование плитки
                 if (context.Visited[targetPos.x * cols + targetPos.y] ||
-                    context.Field[targetPos.x, targetPos.y] is not LogicalTile targetTile)
+                    context.Snapshot[targetPos.x, targetPos.y] is not LogicalTile targetTile)
                     continue;
 
                 var targetSnapshot = new TileSnapshot(targetPos, targetTile.Type);

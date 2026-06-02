@@ -12,3 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8fa2495d869703f4d9b481133c7745af, type: 3}
   m_Name: Evaluatiion
   m_EditorClassIdentifier: Assembly-CSharp::Evaluation
+  MatchRules: {fileID: 11400000, guid: 40a2388486a6756409eedc8363a906ba, type: 2}
+  SpawnRules: {fileID: 11400000, guid: 5ea962db087fe93438785012cb47227c, type: 2}

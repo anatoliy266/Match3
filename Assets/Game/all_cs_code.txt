@@ -1,5 +1,5 @@
 ==================================================== 
-Сборка C# кода от 23.05.2026  0:00:28,42 
+Сборка C# кода от 26.05.2026 20:39:41,75 
 ==================================================== 
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Bus\GameplayEventBus.cs] - Файл №!COUNT! 
@@ -49,6 +49,8 @@ using PrimeTween;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
+using UnityEngine.Timeline;
 
 public enum AnimateAction
 {
@@ -59,8 +61,7 @@ public enum AnimateAction
 
 public struct AnimationBatch
 {
-    public AnimateAction Action;
-    public List<AnimationData> Data;
+    public LogicalTile?[,] Data;
 }
 public struct AnimationData
 {
@@ -68,6 +69,8 @@ public struct AnimationData
     public TileKind Kind;
     public Vector2Int From;
     public Vector2Int To;
+    public AnimateAction Action;
+    public float Delay;
 }
 
 
@@ -76,28 +79,226 @@ public class AnimationManager : MonoBehaviour
     [Req] public FieldView View;
     [Req] public Events Events;
 
-    private Queue<AnimationBatch> _queue = new Queue<AnimationBatch>();
+    private Queue<LogicalTile?[,]> _queue = new Queue<LogicalTile?[,]>();
     private bool _isPlaying;
+
+    private LogicalTile?[,] _prevSnapshot;
+    
+
+    public void Initialize(LogicalTile?[,] snapshot)
+    {
+        _prevSnapshot = snapshot;
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+        for (var i = 0; i < r; i++)
+        {
+            for (var  j = 0; j < c; j++)
+            {
+                if (snapshot[i, j] is null) continue;
+                var tile = snapshot[i,j].Value;
+                View.CreateVisualTile(tile.Id, tile.Type, new Vector2Int(i,j), new Vector2Int(i, j));
+            }
+        }
+    }
+
 
     private void OnEnable()
     {
         var name = Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<AnimationBatch>.Register(name, OnPackageReceived);
+        GameplayEventBus<LogicalTile?[,]>.Register(name, OnPackageReceived);
     }
 
     private void OnDisable()
     {
+        
         var name = Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<AnimationBatch>.Unregister(name, OnPackageReceived);
+        GameplayEventBus<LogicalTile?[,]>.Unregister(name, OnPackageReceived);
     }
 
-    private void OnPackageReceived(AnimationBatch obj)
+    private void OnPackageReceived(LogicalTile?[,] snapshot)
     {
-        _queue.Enqueue(obj);
+        if (_prevSnapshot is null) Initialize(snapshot);
+        _queue.Enqueue(snapshot);
         if (_isPlaying) return;
 
         PlayNext();
     }
+
+    //private List<AnimationData> MatchField(LogicalTile?[,] snapshot)
+    //{
+    //    var animData = new List<AnimationData>();
+
+    //    var dict = new Dictionary<Guid, Vector2Int>();
+    //    var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+    //    for (var i = 0; i < r; i++)
+    //    {
+    //        for (var j = 0; j < c; j++)
+    //        {
+    //            var item = _prevSnapshot[i, j];
+    //            if (item is null) continue;
+    //            var pos = new Vector2Int(i, j);
+    //            dict[item.Value.Id] = new Vector2Int(i, j);
+    //        }
+    //    }
+
+
+    //    for (var i = 0; i < r; i++)
+    //    {
+    //        for (var j = 0; j < c; j++)
+    //        {
+    //            var item = snapshot[i, j];
+    //            if (item is null) continue;
+    //            var pos = new Vector2Int(i, j);
+    //            if (dict.TryGetValue(item.Value.Id, out var p))
+    //            {
+    //                //если позиция не поменялась - скип
+    //                if (p == pos) dict.Remove(item.Value.Id);
+    //                else
+    //                {
+    //                    //если поменялась создаем обьект
+    //                    var anim = new AnimationData
+    //                    {
+    //                        Id = item.Value.Id,
+    //                        Kind = item.Value.Type,
+    //                        From = p,
+    //                        To = pos,
+    //                        Action = AnimateAction.Move,
+    //                        Delay = pos.x * 0.05f
+    //                    };
+    //                    animData.Add(anim);
+
+    //                    dict.Remove(item.Value.Id);
+    //                }
+    //            }
+    //            else
+    //            {
+    //                bool isBonus = item.Value.Type.KindType == TileKindType.Bonus;
+    //                var from = isBonus ? pos : new Vector2Int(r + 1, pos.y);
+
+    //                var data = new AnimationData
+    //                {
+    //                    Id = item.Value.Id,
+    //                    Kind = item.Value.Type,
+    //                    From = from,
+    //                    To = pos,
+    //                    Action = AnimateAction.Spawn,
+    //                    Delay = pos.x * 0.05f
+    //                };
+    //                animData.Add(data);
+    //            }
+    //        }
+    //    }
+    //    //те что остались - на удаление
+    //    foreach (var kvp in dict)
+    //    {
+    //        var data = new AnimationData
+    //        {
+    //            Id = kvp.Key,
+    //            From = kvp.Value,
+    //            Action = AnimateAction.Destroy,
+    //        };
+    //        animData.Add(data);
+    //    }
+
+    //    return animData;
+    //}
+
+    private void MatchField(LogicalTile?[,] snapshot, List<AnimationData> animData)
+    {
+        // Возвращаем твои оригинальные пулы движка
+        //var animData = UnityEngine.Pool.ListPool<AnimationData>.Get();
+        var dict = UnityEngine.Pool.DictionaryPool<Guid, Vector2Int>.Get();
+        dict.Clear();
+        // Копия для безопасного цикла удаления в конце
+        var dictCopy = UnityEngine.Pool.DictionaryPool<Guid, Vector2Int>.Get();
+        dictCopy.Clear();
+
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+        for (var i = 0; i < r; i++)
+        {
+            for (var j = 0; j < c; j++)
+            {
+                var item = _prevSnapshot[i, j];
+                if (item is null) continue;
+                var pos = new Vector2Int(i, j);
+                dict[item.Value.Id] = new Vector2Int(i, j);
+                dictCopy[item.Value.Id] = new Vector2Int(i, j); // дублируем для финала
+            }
+        }
+
+        for (var i = 0; i < r; i++)
+        {
+            for (var j = 0; j < c; j++)
+            {
+                var item = snapshot[i, j];
+                if (item is null) continue;
+                var pos = new Vector2Int(i, j);
+                if (dict.TryGetValue(item.Value.Id, out var p))
+                {
+                    //если позиция не поменялась - скип
+                    if (p == pos)
+                    {
+                        dictCopy.Remove(item.Value.Id); // убираем из финального удаления
+                    }
+                    else
+                    {
+                        //если поменялась создаем обьект
+                        var anim = new AnimationData
+                        {
+                            Id = item.Value.Id,
+                            Kind = item.Value.Type,
+                            From = p,
+                            To = pos,
+                            Action = AnimateAction.Move,
+                            Delay = pos.x * 0.05f
+                        };
+                        animData.Add(anim);
+
+                        dictCopy.Remove(item.Value.Id); // убираем из финального удаления
+                    }
+                }
+                else
+                {
+                    bool isBonus = item.Value.Type.KindType == TileKindType.Bonus;
+
+                    // Если бонус — спавним на месте (pos), если обычная — за экраном (r+1)
+                    var from = isBonus ? pos : new Vector2Int(r + 1, pos.y);
+
+                    var data = new AnimationData
+                    {
+                        Id = item.Value.Id,
+                        Kind = item.Value.Type,
+                        From = from,
+                        To = pos,
+                        Action = AnimateAction.Spawn,
+                        Delay = pos.x * 0.05f
+                    };
+                    animData.Add(data);
+                }
+            }
+        }
+
+        //те что остались - на удаление (идем по безопасной копии, которую не трогали в TryValue)
+        foreach (var kvp in dictCopy)
+        {
+            var data = new AnimationData
+            {
+                Id = kvp.Key,
+                From = kvp.Value,
+                Action = AnimateAction.Destroy,
+            };
+            animData.Add(data);
+        }
+
+        // Возвращаем временные словари в пул
+        UnityEngine.Pool.DictionaryPool<Guid, Vector2Int>.Release(dict);
+        UnityEngine.Pool.DictionaryPool<Guid, Vector2Int>.Release(dictCopy);
+
+        //return animData;
+    }
+
+
     //todo: разделить както чтобы падало по 1 линии типа за раз
     private void PlayNext()
     {
@@ -110,59 +311,88 @@ public class AnimationManager : MonoBehaviour
         }
         _isPlaying = true;
 
-        var batch = _queue.Dequeue();
+        var snapshot = _queue.Dequeue();
         var sequence = Sequence.Create();
+        var animData = ListPool<AnimationData>.Get();
+        //animData.Clear();
+        MatchField(snapshot, animData);
 
-        switch (batch.Action)
+        foreach (var item in animData)
         {
-            case AnimateAction.Spawn:
-                sequence.Chain(Spawn(batch.Data));
-                break;
-            case AnimateAction.Move:
-                sequence.Chain(Move(batch.Data));
-                break;
-            case AnimateAction.Destroy:
-                sequence.Chain(Destroy(batch.Data));
-                break;
-        }
-        sequence.OnComplete(() => PlayNext());
-    }
+            Tween tween = Tween.Delay(0f); // Заглушка по умолчанию
 
-    private Sequence Move(List<AnimationData> data)
-    {
-        var seq = Sequence.Create();
-        foreach (var dataItem in data)
-        {
-            seq.Group(Tween.Position(View.GetVisualTileAt(dataItem.Id).transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f));
-        }
-        return seq;
-    }
-
-    private Sequence Spawn(List<AnimationData> data)
-    {
-        var seq = Sequence.Create();
-        foreach (var dataItem in data)
-        {
-            
-            var target = View.CreateVisualTile(dataItem.Id, dataItem.Kind, dataItem.From);
-            seq.Group(Tween.Scale(target.transform, 0.0f, 1.0f, 1.0f));
-        }
-        return seq;
-    }
-
-    private Sequence Destroy(List<AnimationData> data)
-    {
-        var seq = Sequence.Create();
-        foreach (var dataItem in data)
-        {
-            var target = View.GetVisualTileAt(dataItem.Id);
-
-            seq.Group(Tween.Scale(target.transform, 1.0f, 0.0f, 1.0f).OnComplete(() =>
+            switch (item.Action)
             {
-                View.ClearVisualTile(dataItem.Id);
-            }));
+                case AnimateAction.Spawn:
+                    tween = Spawn(item);
+                    break;
+
+                case AnimateAction.Move:
+                    tween = Move(item);
+                    break;
+
+                case AnimateAction.Destroy:
+                    tween = Destroy(item);
+                    break;
+            }
+            sequence.Group(tween);
         }
-        return seq;
+        ListPool<AnimationData>.Release(animData);
+        sequence.OnComplete(() => {
+            _prevSnapshot = snapshot;
+            PlayNext();
+        });
+    }
+
+    private Tween Move(AnimationData dataItem)
+    {
+        //return Tween.Position(View.GetVisualTileAt(dataItem.Id).transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f);
+        var target = View.GetVisualTileAt(dataItem.Id);
+
+        // Защита: если плитка уже уничтожена на каскаде, просто пропускаем
+        if (target == null)
+        {
+            return Tween.Delay(0f);
+        }
+
+        return Tween.Position(target.transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f, startDelay: dataItem.Delay);
+    }
+
+    private Tween Spawn(AnimationData dataItem)
+    {
+        var target = View.CreateVisualTile(dataItem.Id, dataItem.Kind, dataItem.From, dataItem.To);
+        if (dataItem.From == dataItem.To)
+        {
+            return Tween.Scale(target.transform, 0.0f, 1.0f, 1.0f, startDelay: dataItem.Delay);
+        }
+        else
+        {
+            return Tween.Position(target.transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f, startDelay: dataItem.Delay);
+        }
+
+    }
+
+    private Tween Destroy(AnimationData dataItem)
+    {
+        //var target = View.GetVisualTileAt(dataItem.Id);
+
+        //return Tween.Scale(target.transform, 1.0f, 0.0f, 1.0f).OnComplete(() =>
+        //{
+        //    View.ClearVisualTile(dataItem.Id);
+        //});
+
+        var target = View.GetVisualTileAt(dataItem.Id);
+
+        // Если плитки уже нет на поле, возвращаем пустой твин-заглушку, чтобы не ломать очередь PrimeTween
+        if (target == null)
+        {
+            return Tween.Delay(0f);
+        }
+
+        return Tween.Scale(target.transform, 1.0f, 0.0f, 1.0f, startDelay: dataItem.Delay).OnComplete(() =>
+        {
+            View.ClearVisualTile(dataItem.Id);
+        });
     }
 }
  
@@ -176,6 +406,7 @@ using Unity.InferenceEngine;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using static UnityEditor.PlayerSettings;
 
 public class DragManager : MonoBehaviour
 {
@@ -187,16 +418,11 @@ public class DragManager : MonoBehaviour
     [Req] public Camera Camera;
     [Req] public Events Events;
 
-    //public event Action<TransitionContext> OnDragCompleted;
+    private Tile Source;
+    private Tile Dest;
 
-    private Vector3 _startPosition;
-    private Vector2Int _startGridPos;
-    private Tile _selectedTile;
-    private Vector3 _currentPos;
-    private Tile _selectedObject;
-    private Vector3 _offset;
-    private Plane _dragPlane;
-    private bool _isBusy = false;
+    private Vector3 SourceStartPos;
+    private Vector3 DestStartPos;
 
 
 
@@ -235,98 +461,115 @@ public class DragManager : MonoBehaviour
 
     }
 
+
     private void OnTouchPress(InputAction.CallbackContext context)
     {
-        if (_isBusy) return;
+        // кидаем рейкаст из позиции курсора
+        //если плитка под курсором была - сохраняем ее, сохраняем ее изначальную позицию
 
-        Camera cam = Camera.main;
-        if (cam == null) return;
-        _currentPos = Pointer.current.position.ReadValue();
-
-        Vector3 worldPoint = cam.ScreenToWorldPoint(new Vector3(_currentPos.x, _currentPos.y, Mathf.Abs(cam.transform.position.z)));
+        var pos = Pointer.current.position.ReadValue();
+        Vector3 worldPoint = Camera.ScreenToWorldPoint(new Vector3(pos.x, pos.y, Camera.main.nearClipPlane));
         RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
-
         if (hit.collider != null)
         {
             if (hit.transform.TryGetComponent<Tile>(out var tile))
             {
-                _selectedObject = tile;
-                _startPosition = tile.transform.position;
-                _startGridPos = tile.GridPosition;
-                Vector3 hitPoint2D = new Vector3(hit.point.x, hit.point.y, _startPosition.z);
-                _offset = _startPosition - hitPoint2D;
-                _selectedObject.gameObject.layer = 2;
+                Source = tile;
+                SourceStartPos = tile.transform.position;
+                Source.gameObject.layer = 2;
             }
         }
     }
 
     private void OnTouchRelease(InputAction.CallbackContext context)
     {
-        Debug.Log(_selectedObject is null);
-        if (_selectedObject is not null)
+        // если не была записана таргет плитка - вернуть плитку на свою позицию, 
+        //иначе записываем в структуру стартовые и текщие позиции, отправляем ивент
+        if (Source is null) return;
+        if (Dest is null)
         {
-            Vector3 rayOrigin = _selectedObject.transform.position;
-            rayOrigin.z = Camera.transform.position.z;
-            Ray ray = new Ray(rayOrigin, Camera.transform.forward);
-
-            var hit = Physics2D.GetRayIntersection(ray);
-            if (hit.collider != null && hit.transform != _selectedObject)
-            {
-                var to = hit.transform.GetComponent<Tile>();
-                var ctx = new TransitionContext
-                {
-                    Type = StateEvent.MoveTiles,
-                    From = _selectedObject,
-                    To = to,
-                    PositionFrom = _startGridPos,
-                    PositionTo = to.GridPosition
-                };
-
-                var name = Events.GetBusName(GameEvent.Input);
-                GameplayEventBus<TransitionContext>.Trigger(name, ctx);
-            }
-            else
-            {
-                _selectedObject.transform.position = _startPosition;
-            }
-            _selectedObject.gameObject.layer = 0;
+            Source.transform.position = SourceStartPos;
+            Source.gameObject.layer = 0;
+            return;
         }
 
-        _selectedObject = null;
-    }
+        var data = new SwapInfo
+        {
+            SourceId = Source.Id,
+            DestId = Dest.Id
+        };
+
+        Source.transform.position = DestStartPos;
+        Dest.transform.position = SourceStartPos;
+
+        Source.gameObject.layer = 0;
+        Dest.gameObject.layer = 0;
+
+        Source = null;
+        Dest = null;
+        SourceStartPos = Vector3.zero;
+        DestStartPos = Vector3.zero;
+
+        var name = Events.GetBusName(GameEvent.Input);
+        GameplayEventBus<SwapInfo>.Trigger(name, data);
+
+        
+    } 
 
     private void OnTouchPosition(InputAction.CallbackContext context)
     {
-        _currentPos = context.ReadValue<Vector2>();
+        //позиция плитки меняется вслед за позицией курсора
+        //с ограничениями : не больше 1 стандартной длины(? типа до соседа)
+        //                  только по вертикали и горизонтали.
+        //если плитка на соседе - сосед прыгает на стартовую позицию перетаскиваемой плитки.
+        //если курсор уносит с позиции - сосед прыгает обратно
+        var pos = context.ReadValue<Vector2>();
+        Vector3 worldPoint = Camera.ScreenToWorldPoint(new Vector3(pos.x, pos.y, Camera.main.nearClipPlane));
 
-        if (_selectedObject is not null)
+        if (Source is null) { return; }
+
+        if (Dest is null)
         {
-            Camera cam = Camera.main;
-            if (cam == null) return;
-
-            Vector3 worldPoint = cam.ScreenToWorldPoint(new Vector3(_currentPos.x, _currentPos.y, Mathf.Abs(cam.transform.position.z)));
-
-            Vector3 targetPos = worldPoint + _offset;
-
-            Vector3 heading = targetPos - _startPosition;
-
-            if (Mathf.Abs(heading.x) > Mathf.Abs(heading.y))
+            RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
+            if (hit.collider != null)
             {
-                heading.y = 0;
-                heading.x = Mathf.Clamp(heading.x, -1f, 1f);
+                if (hit.transform.TryGetComponent<Tile>(out var tile))
+                {
+                    Dest = tile;
+                    DestStartPos = tile.transform.position;
+                    Dest.transform.position = SourceStartPos;
+                    Dest.gameObject.layer = 2;
+                    return;
+                }
             }
-            else
-            {
-                heading.x = 0;
-                heading.y = Mathf.Clamp(heading.y, -1f, 1f);
-            }
-
-            _selectedObject.transform.position = new Vector3(
-                _startPosition.x + heading.x,
-                _startPosition.y + heading.y,
-                _startPosition.z
-            );
         }
+
+        //надо проверять находится ли еще плитка сорс в позиции или рядом с дест и если нет - возвращать дест обратно и занулять.
+        //тогда следущий рейкаст проверит новую плитку и поставит ее в сорс и поменяет ее позицию на стартовую сорса
+        if (Dest != null && Vector2.Distance(worldPoint, DestStartPos) > 1.2f) // 1.2f ≈ размер клетки + небольшой допуск
+        {
+            Dest.transform.position = DestStartPos;
+            Dest.gameObject.layer = 0;
+            Dest = null;
+            DestStartPos = Vector3.zero;
+        }
+
+        float dx = worldPoint.x - SourceStartPos.x;
+        float dy = worldPoint.y - SourceStartPos.y;
+
+        // Только по одной оси: выбираем доминирующее направление
+        if (Mathf.Abs(dx) > Mathf.Abs(dy))
+        {
+            dy = 0; 
+            dx = Mathf.Clamp(dx, -1f, 1f); 
+        }
+        else
+        {
+            dx = 0;
+            dy = Mathf.Clamp(dy, -1f, 1f);
+        }
+
+        Source.transform.position = new Vector3(SourceStartPos.x + dx, SourceStartPos.y + dy, SourceStartPos.z);
     }
 }
  
@@ -340,6 +583,7 @@ public class DragManager : MonoBehaviour
 using System;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -375,46 +619,65 @@ public class Field : MonoBehaviour
         return board;
     }
 
+    public void ToPositionChache(Dictionary<Guid, Vector2Int> positionsCache)
+    {
+        for (int r = 0; r < _rows; r++)
+        {
+            for (int c = 0; c < _cols; c++)
+            {
+                if (_logicalTiles[r,c] is not null)
+                {
+                    positionsCache[_logicalTiles[r, c].Value.Id] = new Vector2Int(r,c);
+                }
+            }
+        }
+    }
+
     public Vector2Int GetBounds() => new Vector2Int(_rows, _cols);
 
+    public bool IsInBounds(Vector2Int pos) => pos.x >= 0 && pos.x < _rows && pos.y >= 0 && pos.y < _cols;
 
-    public bool IsInBounds(Vector2Int pos)
+    public LogicalTile? GetTileAt(Vector2Int pos) => _logicalTiles[pos.x, pos.y];
+
+    public LogicalTile? GetTileAt(Guid sourceId)
     {
-        return pos.x >= 0 && pos.x < _rows && pos.y >= 0 && pos.y < _cols;
+        for (var i = 0 ; i < _rows; i++)
+        {
+            for (var j = 0 ; j < _cols; j++)
+            {
+                if (_logicalTiles[i, j] is not null && _logicalTiles[i, j].Value.Id == sourceId) return _logicalTiles[i, j];
+            }
+        }
+        return null;
+    }
+
+    public bool TryGetPosition(Guid sourceId, out Vector2Int pos)
+    {
+        for (var i = 0; i < _rows; i++)
+        {
+            for (var j = 0; j < _cols; j++)
+            {
+                if (_logicalTiles[i, j] is not null && _logicalTiles[i, j].Value.Id == sourceId)
+                {
+                    pos = new Vector2Int(i, j);
+                    return true;
+                }
+            }
+        }
+        pos = default;
+        return false;
     }
 
 
-    public LogicalTile? GetTileAt(Vector2Int pos)
-    {
-        return _logicalTiles[pos.x, pos.y];
-    }
+    public void SetTileAt(Vector2Int pos, LogicalTile? tile) => _logicalTiles[pos.x, pos.y] = tile;
 
+    public void ClearTileAt(Vector2Int pos) => _logicalTiles[pos.x, pos.y] = null;
 
-    public void SetTileAt(Vector2Int pos, LogicalTile? tile)
-    {
-        _logicalTiles[pos.x, pos.y] = tile;
-    }
+    public Guid GenerateUniqueId() => Guid.NewGuid();
 
+    public Vector3 GetWorldPos(int row, int col) => new Vector3(col - _cols / 2, row - _rows / 2, 0);
 
-    public void ClearTileAt(Vector2Int pos)
-    {
-        _logicalTiles[pos.x, pos.y] = null;
-    }
-
-    public Guid GenerateUniqueId()
-    {
-        return Guid.NewGuid();
-    }
-
-    public Vector3 GetWorldPos(int row, int col)
-    {
-        return new Vector3(col - _cols / 2, row - _rows / 2, 0);
-    }
-
-    public Vector3 GetWorldPos(Vector2Int v)
-    {
-        return new Vector3(v.y - _cols / 2, v.x - _rows / 2, 0);
-    }
+    public Vector3 GetWorldPos(Vector2Int v) => new Vector3(v.y - _cols / 2, v.x - _rows / 2, 0);
 }
 
  
@@ -461,19 +724,19 @@ public class FieldView : MonoBehaviour
     {
         for (var i = 0; i < _visualTiles.Length; i++)
         {
-            if (_visualTiles[i].Id == id) return _visualTiles[i];
+            if (_visualTiles[i] is not null && _visualTiles[i].Id == id) return _visualTiles[i];
         }
         return null;
     }
 
 
-    public Tile CreateVisualTile(Guid id, TileKind type, Vector2Int pos)
+    public Tile CreateVisualTile(Guid id, TileKind type, Vector2Int from, Vector2Int to)
     {
         var tile = _pool.Get();
         tile.Id = id;
         tile.SetType(type);
-        tile.transform.position = GetWorldPos(pos);
-        _visualTiles[pos.x * _cols + pos.y] = tile;
+        tile.transform.position = GetWorldPos(from);
+        _visualTiles[to.x * _cols + to.y] = tile;
         return tile;
     }
 
@@ -482,7 +745,7 @@ public class FieldView : MonoBehaviour
     {
         for (var i = 0; i < _visualTiles.Length; i++)
         {
-            if (id == _visualTiles[i].Id)
+            if (_visualTiles[i] is not null && id == _visualTiles[i].Id)
             {
                 _pool.Release(_visualTiles[i]);
                 _visualTiles[i] = null;
@@ -515,11 +778,13 @@ public class LevelController : MonoBehaviour
 {
     [Header("Prefabs")]
     [SerializeField] private Field fieldPrefab;
+    [SerializeField] private FieldView fieldViewPrefab;
 
     [Header("Level Data Storage")]
     [SerializeField] private List<LevelSettings> allLevels;
 
     private Field _currentFieldInstance;
+    private FieldView _currentFieldViewInstance;
 
     private void Start()
     {
@@ -545,6 +810,13 @@ public class LevelController : MonoBehaviour
         _currentFieldInstance = Instantiate(fieldPrefab, Vector3.zero, Quaternion.identity);
         _currentFieldInstance.Initialize(data);
 
+        _currentFieldViewInstance = Instantiate(fieldViewPrefab, Vector3.zero, Quaternion.identity);
+        _currentFieldViewInstance.Initialize(data);
+
+        //
+
+
+
         Debug.Log($"[LevelManager] Уровень {levelNumber} успешно запущен!");
     }
 }
@@ -555,70 +827,101 @@ public class LevelController : MonoBehaviour
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\ObjectPool.cs] - Файл №!COUNT! 
 ---------------------------------------- 
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Pool;
+//using System.Collections.Generic;
+//using UnityEngine;
+//using UnityEngine.Pool;
 
-public class ObjectPool : MonoBehaviour
-{
-    public static ObjectPool SharedInstance;
-    private Queue<Tile> _pool;
-    public Tile Prefab;
-    public int amountToPool;
+//public class ObjectPool : MonoBehaviour
+//{
+//    public static ObjectPool SharedInstance;
+//    private Queue<Tile> _pool;
+//    public Tile Prefab;
+//    public int amountToPool;
 
-    void Awake()
-    {
-        if (SharedInstance != null && SharedInstance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        SharedInstance = this;
+//    void Awake()
+//    {
+//        if (SharedInstance != null && SharedInstance != this)
+//        {
+//            Destroy(gameObject);
+//            return;
+//        }
+//        SharedInstance = this;
 
-        _pool = new Queue<Tile>();
-    }
-    void Start()
-    {
-        for (int i = 0; i < amountToPool; i++)
-        {
-            CreateNewInstance(false);
-        }
-    }
+//        _pool = new Queue<Tile>();
+//    }
+//    void Start()
+//    {
+//        for (int i = 0; i < amountToPool; i++)
+//        {
+//            CreateNewInstance(false);
+//        }
+//    }
 
-    public Tile GetObject() 
-    {
-        if (_pool.Count > 0)
-        {
-            var obj = _pool.Dequeue();
-            obj.gameObject.SetActive(true);
-            return obj;
-        }
-        return CreateNewInstance(true);
-    }
+//    public Tile GetObject() 
+//    {
+//        if (_pool.Count > 0)
+//        {
+//            var obj = _pool.Dequeue();
+//            obj.gameObject.SetActive(true);
+//            return obj;
+//        }
+//        return CreateNewInstance(true);
+//    }
 
-    public void ReturnObject(Tile tile)
-    {
-        tile.Reset();
-        tile.gameObject.SetActive(false);
-        _pool.Enqueue(tile);
-    }
+//    public void ReturnObject(Tile tile)
+//    {
+//        tile.Reset();
+//        tile.gameObject.SetActive(false);
+//        _pool.Enqueue(tile);
+//    }
 
     
 
-    private Tile CreateNewInstance(bool activate = false)
-    {
-        var instance = Instantiate(Prefab, transform);
-        instance.gameObject.SetActive(activate);
+//    private Tile CreateNewInstance(bool activate = false)
+//    {
+//        var instance = Instantiate(Prefab, transform);
+//        instance.gameObject.SetActive(activate);
 
-        if (!activate)
-        {
-            _pool.Enqueue(instance);
-        }
+//        if (!activate)
+//        {
+//            _pool.Enqueue(instance);
+//        }
 
-        return instance;
-    }
-}
+//        return instance;
+//    }
+//}
  
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\RegularType.cs] - Файл №!COUNT! 
+---------------------------------------- 
+﻿using UnityEngine;
+
+public enum RegularType { Red, Green, Blue, Yellow, Orange, Purple }
+public enum BonusType { Bomb, VerticalBomb, HorizontalBomb, ColorBomb }
+public enum TileKindType { Regular, Bonus }
+
+public struct TileKind
+{
+    public TileKindType KindType;
+    public RegularType RegularType;
+    public BonusType BonusType;
+    public RegularType? TargetColor;
+
+    public static TileKind Regular(RegularType type) => new TileKind
+    {
+        KindType = TileKindType.Regular,
+        RegularType = type
+    };
+
+    public static TileKind Bonus(BonusType type, RegularType? target = null) => new TileKind
+    {
+        KindType = TileKindType.Bonus,
+        BonusType = type,
+        TargetColor = target
+    };
+} 
 ======================================== 
  
  
@@ -690,37 +993,6 @@ public class Tile : MonoBehaviour
 ======================================== 
  
  
-[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\TileType.cs] - Файл №!COUNT! 
----------------------------------------- 
-﻿using UnityEngine;
-
-public enum TileType { Red, Green, Blue, Yellow, Orange, Purple }
-public enum BonusType { Bomb, VerticalBomb, HorizontalBomb, ColorBomb }
-public enum TileKindType { Regular, Bonus }
-
-public struct TileKind
-{
-    public TileKindType KindType;
-    public TileType RegularType;
-    public BonusType BonusType;
-    public TileType? TargetColor;
-
-    public static TileKind Regular(TileType type) => new TileKind
-    {
-        KindType = TileKindType.Regular,
-        RegularType = type
-    };
-
-    public static TileKind Bonus(BonusType type, TileType? target = null) => new TileKind
-    {
-        KindType = TileKindType.Bonus,
-        BonusType = type,
-        TargetColor = target
-    };
-} 
-======================================== 
- 
- 
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\TileTypeChances.cs] - Файл №!COUNT! 
 ---------------------------------------- 
 ﻿using UnityEngine;
@@ -732,7 +1004,7 @@ namespace Assets.Game.Components
 	[Serializable]
 	public class TileSpawnChance 
 	{
-		public TileType Type;
+		public RegularType Type;
 		public float SpawnChance;
 		public float currentChance;
 	}
@@ -742,6 +1014,7 @@ namespace Assets.Game.Components
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Components\FSM\BlackBoard.cs] - Файл №!COUNT! 
 ---------------------------------------- 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -750,15 +1023,18 @@ public class FieldBlackboard
     // ==========================================
     // 1. ДАННЫЕ ДЛЯ СВАПА (Записывает IdleState, читает SwapState)
     // ==========================================
-    public Vector2Int SwapFrom { get; set; }
-    public Vector2Int SwapTo { get; set; }
-
+    
+    public SwapInfo SourceDest { get; set; }
 
     // ==========================================
     // 2. ДАННЫЕ ДЛЯ МАТЧЕЙ (Записывает MatchState, читает DestroyState)
     // ==========================================
     public List<MatchInfo> CurrentMatches { get; set; }
 
+    // ==========================================
+    // 2. ДАННЫЕ ДЛЯ БОНУСОВ (Записывает MatchState, читает FillUpState)
+    // ==========================================
+    public List<SpawnInfo> CurrentBonuses { get; internal set; }
 
     // ==========================================
     // 3. СОСТОЯНИЕ ТЕКУЩЕГО ХОДА И ИГРЫ
@@ -770,7 +1046,8 @@ public class FieldBlackboard
     public bool HasAvailableMoves { get; set; }
 
     // Данные для подсказки игроку
-    public HintInfo CurrentHint { get; set; }
+    //public HintInfo CurrentHint { get; set; }
+    
 
 
     // ==========================================
@@ -778,13 +1055,13 @@ public class FieldBlackboard
     // ==========================================
     public void Reset()
     {
-        // Сбрасываем координаты в дефолтные невалидные значения
-        SwapFrom = new Vector2Int(-1, -1);
-        SwapTo = new Vector2Int(-1, -1);
 
         // Очищаем список матчей, чтобы не держать ссылки в памяти
         CurrentMatches?.Clear();
         CurrentMatches = null;
+
+        CurrentBonuses?.Clear();
+        CurrentBonuses = null;
 
         // Сбрасываем счетчик комбо
         CascadeIteration = 0;
@@ -805,17 +1082,17 @@ public class FiniteStateMachine : MonoBehaviour
     [Req] public FieldStates States;
     [Tooltip("Точка старта")]
     [Req] public GameState State;
-
-    [Req] public Events Events;
-
-
     [Req] public Field Field;
 
     public FieldBlackboard Blackboard {  get; set; }
+    public MatchEvaluator MatchEvaluator { get; set; }
+    public SpawnEvaluator SpawnEvaluator { get; set; }
     private void Awake()
     {
         Field = GetComponent<Field>();
         Blackboard = new FieldBlackboard();
+        MatchEvaluator = new MatchEvaluator();
+        SpawnEvaluator = new SpawnEvaluator();
     }
 
     private void Start()
@@ -916,36 +1193,6 @@ public class ReqDrawer : PropertyDrawer
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\Editor\TileGeometryEditor.cs] - Файл №!COUNT! 
 ---------------------------------------- 
-//using UnityEditor;
-//using UnityEngine;
-//using UnityEngine.UIElements;
-
-//public class TileGeometryEditor : EditorWindow
-//{
-//    [SerializeField]
-//    private VisualTreeAsset m_VisualTreeAsset = default;
-
-//    [MenuItem("Window/UI Toolkit/TileGeometryEditor")]
-//    public static void ShowExample()
-//    {
-//        TileGeometryEditor wnd = GetWindow<TileGeometryEditor>();
-//        wnd.titleContent = new GUIContent("TileGeometryEditor");
-//    }
-
-//    public void CreateGUI()
-//    {
-//        // Each editor window contains a root VisualElement object
-//        VisualElement root = rootVisualElement;
-
-//        // VisualElements objects can contain other VisualElement following a tree hierarchy.
-//        VisualElement label = new Label("Hello World! From C#");
-//        root.Add(label);
-
-//        // Instantiate UXML
-//        VisualElement labelFromUXML = m_VisualTreeAsset.Instantiate();
-//        root.Add(labelFromUXML);
-//    }
-//}
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -954,18 +1201,17 @@ using UnityEngine.UIElements;
 public class TileGeometryEditor : EditorWindow
 {
     [SerializeField]
-    private VisualTreeAsset m_VisualTreeAsset; // Перетащи сюда UXML
+    private VisualTreeAsset m_VisualTreeAsset;
 
     private ObjectField TileSpawnRuleField;
-    private Vector2IntField gridSizeField;
     private Button clearButton;
     private VisualElement gridContainer;
     private Label infoLabel;
 
-    private TileSpawnRuleBase currentShape; // Текущий редактируемый ассет
+    private TileSpawnRuleBase currentShape; 
 
-    private const int CellSize = 24;
-    private const int CellMargin = 2;
+    // Динамический запас пустых клеток вокруг краев фигуры для рисования кликабельной зоны
+    private const int GridPadding = 2;
 
     [MenuItem("Window/UI Toolkit/TileGeometryEditor")]
     public static void ShowExample()
@@ -976,59 +1222,35 @@ public class TileGeometryEditor : EditorWindow
 
     public void CreateGUI()
     {
-        // Загружаем UXML
         VisualElement root = rootVisualElement;
         m_VisualTreeAsset.CloneTree(root);
 
-        // Стили
         var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/Game/Editor/TileGeometryEditor.uss");
         if (styleSheet != null)
             root.styleSheets.Add(styleSheet);
         else
             Debug.LogError("USS not found at path!");
 
-        // Находим элементы
+        // Находим элементы (поле gridSizeField убрано из UXML/кода за ненадобностью)
         TileSpawnRuleField = root.Q<ObjectField>("bonusShapeField");
-        gridSizeField = root.Q<Vector2IntField>("gridSizeField");
         clearButton = root.Q<Button>("clearButton");
         gridContainer = root.Q<VisualElement>("gridContainer");
         infoLabel = root.Q<Label>("infoLabel");
 
         // Подписки
         TileSpawnRuleField.RegisterValueChangedCallback(OnBonusShapeChanged);
-        gridSizeField.RegisterValueChangedCallback(OnGridSizeChanged);
         clearButton.clicked += OnClearClicked;
 
-        // Если окно открыто с уже выбранным ассетом (можно задать извне)
         if (currentShape != null)
         {
             TileSpawnRuleField.value = currentShape;
-            RefreshAll();
+            RefreshGrid();
         }
     }
 
     private void OnBonusShapeChanged(ChangeEvent<Object> evt)
     {
         currentShape = evt.newValue as TileSpawnRuleBase;
-        if (currentShape != null)
-        {
-            // Обновляем поле gridSize из ассета
-            gridSizeField.SetValueWithoutNotify(currentShape.gridSize);
-        }
-        RefreshGrid();
-    }
-
-    private void OnGridSizeChanged(ChangeEvent<Vector2Int> evt)
-    {
-        if (currentShape == null) return;
-
-        Undo.RecordObject(currentShape, "Change Grid Size");
-        currentShape.gridSize = evt.newValue;
-        // Удаляем клетки за пределами
-        currentShape.activeCells.RemoveAll(c =>
-            c.x < 0 || c.x >= currentShape.gridSize.x ||
-            c.y < 0 || c.y >= currentShape.gridSize.y);
-        EditorUtility.SetDirty(currentShape);
         RefreshGrid();
     }
 
@@ -1042,23 +1264,7 @@ public class TileGeometryEditor : EditorWindow
     }
 
     /// <summary>
-    /// Полная перестройка интерфейса при смене ассета
-    /// </summary>
-    private void RefreshAll()
-    {
-        if (currentShape == null)
-        {
-            gridSizeField.SetValueWithoutNotify(Vector2Int.one);
-            gridContainer.Clear();
-            infoLabel.text = "No shape selected";
-            return;
-        }
-        gridSizeField.SetValueWithoutNotify(currentShape.gridSize);
-        RefreshGrid();
-    }
-
-    /// <summary>
-    /// Перерисовать только сетку
+    /// Перерисовать динамическую сетку на основе имеющихся точек фигуры
     /// </summary>
     private void RefreshGrid()
     {
@@ -1069,28 +1275,58 @@ public class TileGeometryEditor : EditorWindow
             return;
         }
 
-        int w = currentShape.gridSize.x;
-        int h = currentShape.gridSize.y;
+        // Если фигура пустая, рисуем базовый дефолтный квадрат 5х5 вокруг нуля
+        int minX = -2, maxX = 2;
+        int minY = -2, maxY = 2;
 
-        // Рисуем строки снизу вверх (чтобы (0,0) был левый нижний)
-        for (int row = h - 1; row >= 0; row--)
+        // Если в фигуре уже есть точки, считаем ее реальные границы (Bounding Box)
+        if (currentShape.activeCells != null && currentShape.activeCells.Count > 0)
+        {
+            minX = int.MaxValue; maxX = int.MinValue;
+            minY = int.MaxValue; maxY = int.MinValue;
+
+            for (int i = 0; i < currentShape.activeCells.Count; i++)
+            {
+                var pos = currentShape.activeCells[i];
+                if (pos.x < minX) minX = pos.x;
+                if (pos.x > maxX) maxX = pos.x;
+                if (pos.y < minY) minY = pos.y;
+                if (pos.y > maxY) maxY = pos.y;
+            }
+
+            // Добавляем пустые поля по краям холста, чтобы было куда кликнуть для расширения
+            minX -= GridPadding; maxX += GridPadding;
+            minY -= GridPadding; maxY += GridPadding;
+        }
+
+        // Рисуем строки сверху вниз (от maxY до minY)
+        for (int row = maxY; row >= minY; row--)
         {
             var rowElement = new VisualElement();
             rowElement.AddToClassList("grid-row");
-            for (int col = 0; col < w; col++)
+
+            for (int col = minX; col <= maxX; col++)
             {
+                var currentCoord = new Vector2Int(col, row);
                 var cell = new VisualElement();
                 cell.AddToClassList("grid-cell");
-                if (currentShape.activeCells.Contains(new Vector2Int(col, row)))
+
+                // Подсвечиваем центр координат (0,0) другим цветом/стилем для удобства привязки
+                if (col == 0 && row == 0)
+                    cell.AddToClassList("grid-cell--center");
+
+                if (currentShape.activeCells.Contains(currentCoord))
                     cell.AddToClassList("grid-cell--active");
 
-                cell.userData = new Vector2Int(col, row);
+                cell.userData = currentCoord;
                 cell.RegisterCallback<MouseDownEvent>(OnCellClicked);
+
+                // Инлайновые базовые стили (лучше перенести в USS)
                 cell.style.width = 24;
                 cell.style.height = 24;
                 cell.style.marginLeft = 2;
                 cell.style.marginTop = 2;
-                //cell.style.backgroundColor = new StyleColor(Color.gray);
+
                 rowElement.Add(cell);
             }
             gridContainer.Add(rowElement);
@@ -1114,15 +1350,11 @@ public class TileGeometryEditor : EditorWindow
 
         EditorUtility.SetDirty(currentShape);
 
-        // Обновляем визуал только этой клетки
-        if (currentShape.activeCells.Contains(coord))
-            cell.AddToClassList("grid-cell--active");
-        else
-            cell.RemoveFromClassList("grid-cell--active");
-
-        infoLabel.text = $"Active Cells: {currentShape.activeCells.Count}";
+        // Перерисовываем ВСЮ сетку, так как при клике на край холст должен расшириться
+        RefreshGrid();
     }
-} 
+}
+ 
 ======================================== 
  
  
@@ -1144,58 +1376,85 @@ public class LevelSettings : ScriptableObject
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\BFS.cs] - Файл №!COUNT! 
 ---------------------------------------- 
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
 
+public struct AlgoritmContext
+{
+    public LogicalTile?[,] Snapshot;
+    public IReadOnlyList<TileMatchRuleBase> Rules;
+    public Queue<Vector2Int> Queue;
+    public bool[] Visited;
+}
+
+
+
 public static class BFS
 {
-    [ThreadStatic]
-    private static Queue<Vector2Int> _queue;
-    public static HashSet<Vector2Int> Run(Tile.Snapshot?[,] board,
-        Vector2Int start,
-        Func<Tile.Snapshot?[,], Vector2Int, Vector2Int, Vector2Int, bool> canConnect)
+    private static readonly Vector2Int[] Directions = {
+        Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
+    };
+
+    public static void Run(Vector2Int startPos, AlgoritmContext context, List<Guid> groupResult)
     {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
+        // 1. Проверяем стартовую плитку
+        if (context.Snapshot[startPos.x, startPos.y] is not LogicalTile startTile) return;
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-        Array.Clear(visited, 0, rows * cols);
+        if (context.Rules.Count == 0) return;
 
-        _queue ??= new Queue<Vector2Int>();
-        _queue.Clear();
+        int rows = context.Snapshot.GetLength(0);
+        int cols = context.Snapshot.GetLength(1);
 
-        visited[start.x * cols + start.y] = true;
+        // 2. Настраиваем старт
+        var sourceSnapshot = new TileSnapshot(startPos, startTile.Type);
+        context.Visited[startPos.x * cols + startPos.y] = true;
+        context.Queue.Enqueue(startPos);
+        groupResult.Add(startTile.Id);
 
-        _queue.Enqueue(start);
-
-        var group = new HashSet<Vector2Int>();
-        while (_queue.Count > 0)
+        // 3. Основной цикл волнового поиска
+        while (context.Queue.Count > 0)
         {
-            var pos = _queue.Dequeue();
-            group.Add(pos);
-
-            for (var i = pos.x - 1; i <= pos.x + 1; i++)
+            Vector2Int currentPos = context.Queue.Dequeue();
+            LogicalTile currentTile = context.Snapshot[currentPos.x, currentPos.y].Value;
+            var currentSnapshot = new TileSnapshot(currentPos, currentTile.Type);
+            for (int d = 0; d < Directions.Length; d++)
             {
-                for (var j = pos.y - 1; j <= pos.y + 1; j++)
+                var dir = Directions[d];
+                Vector2Int targetPos = currentPos + dir;
+
+                // Проверка границ поля
+                if (targetPos.x < 0 || targetPos.x >= rows || targetPos.y < 0 || targetPos.y >= cols)
+                    continue;
+
+                // Проверка на посещение и существование плитки
+                if (context.Visited[targetPos.x * cols + targetPos.y] ||
+                    context.Snapshot[targetPos.x, targetPos.y] is not LogicalTile targetTile)
+                    continue;
+
+                var targetSnapshot = new TileSnapshot(targetPos, targetTile.Type);
+
+                // Прогоняем соседа по правилам
+                bool isMatch = false;
+                for (int i = 0; i < context.Rules.Count; i++)
                 {
-
-                    if (i < 0 || i >= rows || j < 0 || j >= cols) continue;
-                    if (visited[i * cols + j]) continue;
-                    if (board[i, j] is null) continue;
-
-                    if (canConnect(board, start, pos, board[i, j].Value.GridPosition))
+                    if (context.Rules[i].IsMatch(in sourceSnapshot, in currentSnapshot, in targetSnapshot))
                     {
-                        visited[i * cols + j] = true;
-                        _queue.Enqueue(board[i, j].Value.GridPosition);
+                        isMatch = true;
+                        break;
                     }
+                }
+
+                // Если подошел — забираем в группу
+                if (isMatch)
+                {
+                    context.Visited[targetPos.x * cols + targetPos.y] = true;
+                    context.Queue.Enqueue(targetPos);
+                    groupResult.Add(targetTile.Id);
                 }
             }
         }
-        ArrayPool<bool>.Shared.Return(visited);
-        return group;
     }
-}
- 
+} 
 ======================================== 
  
  
@@ -1211,177 +1470,85 @@ using UnityEngine.Video;
 
 public struct MatchInfo
 {
-    public TileType Type;
-    public HashSet<Vector2Int> Positions;
+    public TileKind GroupType;
+    public List<Guid> Positions;
     public int Count => Positions.Count;
 }
 
-[CreateAssetMenu(fileName = "MatchEvaluator", menuName = "Scriptable Objects/MatchEvaluator")]
-public class MatchEvaluator : ScriptableObject
+//проверяет поле на наличие совпадений по правилам
+public class MatchEvaluator
 {
-    public MatchRules MatchRules;
-    [ThreadStatic] private static Queue<Vector2Int> _queue;
+    [ThreadStatic] private static Queue<Vector2Int> _queue = new Queue<Vector2Int>();
 
-
-    public List<MatchInfo> FindAll(Tile.Snapshot?[,] board)
+    //идет по полю и проверяет плитки на совпадение по цвету через бфс, возвращает список групп
+    public void Evaluate(LogicalTile?[,] snapshot, MatchRules rules, List<MatchInfo> matches)
     {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
 
-        var groups = new List<MatchInfo>();
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
-        Array.Clear(visited, 0, rows * cols);
+        var visited = ArrayPool<bool>.Shared.Rent(r * c);
 
-        for (var r = 0; r < rows; r++)
+        Array.Clear(visited, 0, visited.Length);
+        _queue.Clear();
+
+        for (var i = 0; i < r; i++)
         {
-            for (var c = 0; c < cols; c++)
+            for (var j = 0; j < c; j++)
             {
-                if (board[r, c] is null || visited[r * cols + c]) continue;
-                if (board[r, c] is not null && board[r, c].Value.IsBonus) continue;
+                if (snapshot[i, j] is null) continue;
+                if (snapshot[i, j].Value.Type.KindType == TileKindType.Bonus) continue;
+                if (visited[i * c + j]) continue;
 
-                var group = GroupAt(board, board[r, c].Value.GridPosition);
-
-                foreach (var pos in group)
+                var pos = new Vector2Int(i, j);
+                var type = snapshot[i, j].Value.Type;
+                var tileRules = rules.GetRules(type);
+                var group = new List<Guid>();
+                var data = new AlgoritmContext
                 {
-                    visited[pos.x * cols + pos.y] = true;
-                }
+                    Snapshot = snapshot,
+                    Queue = _queue,
+                    Visited = visited,
+                    Rules = tileRules,
+                };
+                BFS.Run(pos, data, group);
 
                 if (group.Count > 2)
                 {
-                    var matchInfo = new MatchInfo
-                    {
-                        Type = board[r, c].Value.Type,
-                        Positions = group
-                    };
-                    groups.Add(matchInfo);
+                    matches.Add(new MatchInfo { GroupType = type, Positions = group });
                 }
-
             }
         }
         ArrayPool<bool>.Shared.Return(visited);
-        return groups;
     }
 
-    public List<MatchInfo> FindAllBonuses(Tile.Snapshot?[,] board, Vector2Int startPos)
-    {
-        var (rows, cols) = (board.GetLength(0), board.GetLength(1));
-        //ищем по бонусу и его правилу все совпадения, если в совпадениях бонуса был найден другой бонус - ищем его тоже но
-        //добавляем только ячейки которые не были до этого задеты другим бонусом
-        var type = board[startPos.x, startPos.y].Value.Type;
-        
-        var groups = new List<MatchInfo>();
-        if (type != TileType.Bomb && type != TileType.VerticalBomb && type != TileType.HorizontalBomb) return groups;
 
-        var visited = ArrayPool<bool>.Shared.Rent(rows * cols);
+    public void GetBonusGroupAt(LogicalTile?[,] snapshot, Vector2Int position, MatchRules rules, List<MatchInfo> groups)
+    {
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+
+        var visited = ArrayPool<bool>.Shared.Rent(r * c);
         Array.Clear(visited, 0, visited.Length);
 
-        var queue = new Queue<Vector2Int>();
-        queue.Enqueue(startPos);
+        if (snapshot[position.x, position.y] is null) return;
+        var type = snapshot[position.x, position.y].Value.Type;
+        if (type.KindType == TileKindType.Regular) return;
 
-        while (queue.Count > 0)
+        var tileRules = rules.GetRules(type);
+        var group = new List<Guid>();
+        var data = new AlgoritmContext
         {
-            var currPos = queue.Dequeue();
+            Snapshot = snapshot,
+            Queue = _queue,
+            Visited = visited,
+            Rules = tileRules,
+        };
+        BFS.Run(position, data, group);
 
-            var group = GroupAt(board, currPos);
-            if (group.Count < 3) continue;
-
-            var cleanGroup = new MatchInfo { Type = board[startPos.x, startPos.y].Value.Type, Positions = new HashSet<Vector2Int>()};
-            foreach (var pos in group)
-            {
-                if (!visited[pos.x * cols + pos.y])
-                {
-                    if (board[pos.x, pos.y].Value.IsBonus) queue.Enqueue(pos);
-                    cleanGroup.Positions.Add(pos);
-                    visited[pos.x * cols + pos.y] = true;
-                }
-
-            }
-            if (cleanGroup.Positions.Count > 0)
-                groups.Add(cleanGroup);
-        }
         ArrayPool<bool>.Shared.Return(visited);
-        return groups;
-    }
-
-    public (Vector2Int pos1, Vector2Int pos2)? FindAvailableHint(Tile.Snapshot?[,] snapshot)
-    {
-        var (rows, cols) = (snapshot.GetLength(0), snapshot.GetLength(1));
-
-        for (var i = 0; i < rows; i++)
-        {
-            for (var j = 0; j < cols; j++)
-            {
-                if (snapshot[i, j] == null) continue;
-
-                // ВПРАВО (j + 1)
-                if (j + 1 < cols && snapshot[i, j + 1] != null)
-                {
-                    (snapshot[i, j], snapshot[i, j + 1]) = (snapshot[i, j + 1], snapshot[i, j]);
-
-                    if (GroupSizeAt(snapshot, new Vector2Int(i, j)) >= 3 ||
-                        GroupSizeAt(snapshot, new Vector2Int(i, j + 1)) >= 3)
-                    {
-                        return (new Vector2Int(i, j), new Vector2Int(i, j + 1));
-                    }
-
-                    (snapshot[i, j], snapshot[i, j + 1]) = (snapshot[i, j + 1], snapshot[i, j]);
-                }
-
-                // ВНИЗ (i + 1)
-                if (i + 1 < rows && snapshot[i + 1, j] != null)
-                {
-                    (snapshot[i, j], snapshot[i + 1, j]) = (snapshot[i + 1, j], snapshot[i, j]);
-
-                    if (GroupSizeAt(snapshot, new Vector2Int(i, j)) >= 3 ||
-                        GroupSizeAt(snapshot, new Vector2Int(i + 1, j)) >= 3)
-                    {
-                        return (new Vector2Int(i, j), new Vector2Int(i + 1, j));
-                    }
-
-                    (snapshot[i, j], snapshot[i + 1, j]) = (snapshot[i + 1, j], snapshot[i, j]);
-                }
-            }
-        }
-        return null; 
-    }
-
-
-    public HashSet<Vector2Int> GroupAt(Tile.Snapshot?[,] board, Vector2Int start)
-    {
-        try
-        {
-            if (start.x == -1 || start.y == -1) { Debug.Log($"-1 : {start.x}, {start.y}"); }
-            var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-            var group = BFS.Run(board, board[start.x, start.y].Value.GridPosition, rule.IsMatch);
-            return group;
-        } catch (Exception ex)
-        {
-            Debug.LogException(ex);
-            Debug.Log(board[start.x, start.y].Value.Type);
-            Debug.Log($"{start.x}, {start.y}");
-            throw new Exception();
-        }
-    }
-
-    public int GroupSizeAt(Tile.Snapshot?[,] board, Vector2Int start)
-    {
-        if (start.x < 0 || start.x >= board.GetLength(0) ||
-            start.y < 0 || start.y >= board.GetLength(1))
-            return 0;
-        if (board[start.x, start.y] == null) return 0;
-
-        var rows = board.GetLength(0);
-        var cols = board.GetLength(1);
-
-        var rule = MatchRules.GetRule(board[start.x, start.y].Value.Type);
-
-        var count = BFS.Run(board, start, rule.IsMatch).Count;
-
-
-        return count;
+        groups.Add(new MatchInfo { GroupType = type, Positions = group });
     }
 }
-
 
  
 ======================================== 
@@ -1414,83 +1581,62 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Pool;
 
-[CreateAssetMenu(fileName = "SpawnEvaluator", menuName = "Scriptable Objects/SpawnEvaluator")]
-public class SpawnEvaluator : ScriptableObject
+public struct SpawnInfo
 {
-    [Req] public SpawnRules spawnRules;
-    [Req] public MatchRules matchRules;
+    public TileKind Type;
+    public Vector2Int Position;
+}
 
+
+public class SpawnEvaluator
+{
     //выбор обычной фишки
     //надо както предиктивно считать какой тип выбрать чтобы не было бесконечных совпадений и доска "усложнялась" после каждой итерации
-    public TileType GetPredictedWeightedTile(Tile.Snapshot?[,] snapshot, Vector2Int pos, int iterationCnt)
+    public void Evaluate(LogicalTile?[,] snapshot, SpawnRules rules, List<SpawnInfo> spawns)
     {
-        var chance = GetMatchChance(iterationCnt);
-        var match = new bool[7];
-        for (var i = 1; i < 7; i++)
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+        for (var i = 0; i < r; i++)
         {
-            var typeForCheck = (TileType)i;
-            var original = snapshot[pos.x, pos.y];
-            if (original is null) return TileType.Neutral;
-
-            var hypothetical = original.Value.WithType(typeForCheck);
-            snapshot[pos.x, pos.y] = hypothetical;
-
-            var rule = matchRules.GetRule(typeForCheck);
-            if (rule is null) return TileType.Neutral;
-            //поменять в снепшоте ячейку на тип
-            var group = BFS.Run(snapshot, pos, rule.IsMatch);
-            match[i] = group.Count > 2;
-            //вернуть в снепшоте ячейку на старый тип
-            snapshot[pos.x, pos.y] = original;
-        }
-        //подкрутка, если попали в процент - берем рандомный создавший матч из списка, если не попал - то не создавший матч
-        var prediction = UnityEngine.Random.Range(0, 100);
-        bool isMatching = false;
-        if (prediction < chance) isMatching = true;
-
-        var tile = TileType.Neutral;
-        if (isMatching) {
-            var i = 1;
-            for (var m = 1; m < 7; m++)
+            for (var j = 0; j < c; j++)
             {
-                if (!match[m]) continue;
-                var predict = UnityEngine.Random.Range(0,i++);
-                if (predict == 0) tile = (TileType)m;
-            }
-        } else
-        {
-            var i = 1;
-            for (var m = 1; m < 7; m++)
-            {
-                if (match[m]) continue;
-                var predict = UnityEngine.Random.Range(0, i++);
-                if (predict == 0) tile = (TileType)m;
+                if (snapshot[i, j] is not null) continue;
+
+                // todo: както по умному выбирает тип фишки для спавна по коммон правилу спавна
+                // в коммон правиле - что должно быть?
+                var values = System.Enum.GetValues(typeof(RegularType));
+                var type = (RegularType)values.GetValue(UnityEngine.Random.Range(0, values.Length));
+
+                var spawn = new SpawnInfo
+                {
+                    Type = TileKind.Regular(type),
+                    Position = new Vector2Int(i, j)
+                };
+                spawns.Add(spawn);
             }
         }
-
-        return tile;
-    }
-
-    //выбор бонусной фишки
-    //сравниваем группу с правилами, если совпало - ворзвращаем тип
-    public TileType GetMatchedBonusTile(IEnumerable<Vector2Int> group)
-    {
-        for (var i = 7; i < 10; i++)
-        {
-            var rule = spawnRules.GetRule((TileType)i);
-            if (rule.IsMatch(group)) return rule.Type;
-        }
-        return TileType.Neutral;
     }
 
 
-    //подкрутка
-    //подкрутка шанса на то что спавнящаяся фишка создаст матч. уменьшаться както должно с каждым каскадом
-
-    public float GetMatchChance(int iterationCnt)
+    public void EvaluateBonusSpawn(SpawnRules spawnRules, List<Vector2Int> group, Vector2Int targetSpawnPos, List<SpawnInfo> spawns)
     {
-        return (float) 1 / (float) iterationCnt * 100;
+        //ищем правила по размеру группы
+        var rules = spawnRules.GetRules(group.Count);
+
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (rules[i] is not null && rules[i].IsMatch(group))
+            {
+                var spawnInfo = new SpawnInfo
+                {
+                    Type = TileKind.Bonus(rules[i].BonusType),
+                    Position = targetSpawnPos
+                };
+                spawns.Add(spawnInfo);
+            }
+        }
+
     }
 }
  
@@ -1528,16 +1674,16 @@ public class TileTypeData : ScriptableObject
 
     public Color Neutral => _neutral;
 
-    public Color GetColor(TileType type)
+    public Color GetColor(RegularType type)
     {
         return type switch
         {
-            TileType.Red => _red,
-            TileType.Green => _green,
-            TileType.Blue => _blue,
-            TileType.Yellow => _yellow,
-            TileType.Orange => _orange,
-            TileType.Purple => _purple,
+            RegularType.Red => _red,
+            RegularType.Green => _green,
+            RegularType.Blue => _blue,
+            RegularType.Yellow => _yellow,
+            RegularType.Orange => _orange,
+            RegularType.Purple => _purple,
             _ => _neutral
 
         };
@@ -1561,6 +1707,67 @@ public class TileTypeData : ScriptableObject
             return GetColor(kind.RegularType);
         else
             return GetColor(kind.BonusType);
+    }
+}
+ 
+======================================== 
+ 
+ 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TwoPointers.cs] - Файл №!COUNT! 
+---------------------------------------- 
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public struct TileTransitionData
+{
+    public Vector2Int From;
+    public Vector2Int To;
+}
+
+public static class TwoPointers
+{
+    //public static void Run(Vector2Int startPos, AlgoritmContext context, List<TileTransitionData> groupResult)
+    //{
+    //    var (r, c) = (context.Field.GetLength(0), context.Field.GetLength(1));
+
+    //    var (read, write) = (0, 0);
+    //    while (read < r)
+    //    {
+    //        while (write < r && context.Field[write, startPos.y] is not null) write++;
+
+    //        if (context.Field[read, startPos.y] is not null && read > write)
+    //        {
+    //            var data = new TileTransitionData
+    //            {
+    //                From = new Vector2Int(read, startPos.y),
+    //                To = new Vector2Int(write, startPos.y)
+    //            };
+    //            groupResult.Add(data);
+    //            write++;
+    //        }
+    //        read++;
+    //    }
+    //}
+
+    public static void Run(Vector2Int startPos, AlgoritmContext context, List<TileTransitionData> groupResult)
+    {
+        var r = context.Snapshot.GetLength(0);
+        var col = startPos.y;
+        var write = 0;
+        for (var read = 0; read < r; read++)
+        {
+            if (context.Snapshot[read, col] is null) continue;
+            if (read != write)
+            {
+                groupResult.Add(new TileTransitionData
+                {
+                    From = new Vector2Int(read, col),
+                    To = new Vector2Int(write, col)
+                });
+            }
+            write++;
+        }
     }
 }
  
@@ -1601,135 +1808,12 @@ public class Events : ScriptableObject
 ======================================== 
  
  
-[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\BonusState.cs] - Файл №!COUNT! 
----------------------------------------- 
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using Unity.VisualScripting;
-using UnityEngine;
-
-[CreateAssetMenu(fileName = "BonusState", menuName = "Scriptable Objects/BonusState")]
-public class BonusState : GameState
-{
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
-    {
-        Debug.Log("bonus state");
-        _field = field;
-        _fsm = machine;
-        var spawnedBonuses = new HashSet<Tile>();
-
-        foreach (var match in context.Matches)
-        {
-            var type = _field.SpawnEvaluator.GetMatchedBonusTile(match.Positions);
-            if (type is TileType.Neutral) continue;
-
-            var i = 1;
-            var p = new Vector2Int(0, 0);
-            foreach (var pos in match.Positions)
-            {
-                if (UnityEngine.Random.Range(0, i++) == 0)
-                {
-                    p=pos;
-                }
-            }
-            var info = new SpawnInfo { Type = type, IsBonus = true, Offset = 0, Position = p };
-            var tile = _field.SpawnTile(info, context.Snapshot, context.CascadeIteration);
-            _field.UpdateTileOnGrid(p, tile);
-            spawnedBonuses.Add(tile);
-        }
-
-        AnimateBonusSpawn(spawnedBonuses);
-
-        _fsm.Switch(StateEvent.SpawnBonus, context);
-    }
-
-    private void AnimateBonusSpawn(HashSet<Tile> bonuses)
-    {
-        var bonusAnimList = new List<AnimationData>();        
-        foreach (var bonus in bonuses)
-        {
-            var data = new AnimationData
-            {
-                Type = AnimationType.SpawnAtPoint,
-                Target = bonus.transform,
-                Duration = 1.0f
-
-            };
-            bonusAnimList.Add(data);
-        }
-
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, bonusAnimList);
-    }
-}
- 
-======================================== 
- 
- 
-[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\CompactState.cs] - Файл №!COUNT! 
----------------------------------------- 
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using UnityEngine;
-public struct CompactInfo
-{
-    public Tile Tile;
-    public Vector2Int TargetPos;
-}
-
-
-[CreateAssetMenu(fileName = "CompactState", menuName = "Scriptable Objects/CompactState")]
-public class CompactState : GameState
-{
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
-    {
-        _field = field;
-        _fsm = machine;
-
-        var compacts = _field.CompactBoard();
-
-        context.Compacts = compacts;
-
-        if (compacts.Count == 0)
-        {
-            _fsm.Switch(StateEvent.CompactTiles, context);
-            return;
-        }
-        AnimateFalls(context);
-
-        _fsm.Switch(StateEvent.CompactTiles, context);
-    }
-
-    private void AnimateFalls(TransitionContext context)
-    {
-        var fallsAnimList = new List<AnimationData>();
-
-        foreach (var compact in context.Compacts)
-        {
-            var data = new AnimationData
-            {
-                Type = AnimationType.Move,
-                Target = compact.Tile.transform,
-                TargetPosition = _field.GetWorldPos(compact.TargetPos),
-                Duration = 1.0f
-            };
-            fallsAnimList.Add(data);
-        }
-
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, fallsAnimList);
-    }
-}
- 
-======================================== 
- 
- 
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\EvaluationState.cs] - Файл №!COUNT! 
 ---------------------------------------- 
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Unity.AI.MCP.Editor.Tools;
 using UnityEngine;
 using UnityEngine.Pool;
 using static UnityEngine.Rendering.DebugUI.Table;
@@ -1737,49 +1821,67 @@ using static UnityEngine.Rendering.DebugUI.Table;
 [CreateAssetMenu(fileName = "Evaluatiion", menuName = "Scriptable Objects/Evaluatiion")]
 public class Evaluation : GameState
 {
-    
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public MatchRules MatchRules;
+    [Req] public SpawnRules SpawnRules;
+
+    public override void Enter(FiniteStateMachine machine)
     {
-        Debug.Log("Evaluation state enter");
-        _field = field;
-        _fsm = machine;
-        var snapshot = _field.ToSnapshot();
-        //context.From, context.PositionTo, context.To, context.PositionFrom
+        //берет поле и пекредает в валидатор
+        //валидатор ищет на поле есть ли группы одинакового цвета > 3 элементов
+        // возвращает в руку список списков гуидов элементов по группам
+        var snapshot = machine.Field.ToSnapshot();
+        var groups = new List<MatchInfo>();
+        machine.MatchEvaluator.Evaluate(snapshot, MatchRules, groups);
 
-        var foundMatches = new List<MatchInfo>();
+        //проверка групп на совпадение с бонусом
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
+        machine.Field.ToPositionChache(positionsCache);
 
-        if (context.From.IsBonus || context.To.IsBonus)
+        var posGroup = CollectionPool<List<Vector2Int>, Vector2Int>.Get();
+        posGroup.Clear();
+        var spawns = CollectionPool<List<SpawnInfo>, SpawnInfo>.Get();
+        spawns.Clear();
+
+        //var posSource = positionsCache[machine.Blackboard.SourceDest.SourceId];
+        //var posDest = positionsCache[machine.Blackboard.SourceDest.DestId];
+        if (!positionsCache.TryGetValue(machine.Blackboard.SourceDest.SourceId, out var posSource)) posSource = new Vector2Int(-1, -1);
+        if (!positionsCache.TryGetValue(machine.Blackboard.SourceDest.DestId, out var posDest)) posDest = new Vector2Int(-1, -1);
+
+        for (var i = 0; i < groups.Count; i++)
         {
-            if (context.From.IsBonus)
+            posGroup.Clear();
+
+            for (var j = 0; j < groups[i].Positions.Count; j++)
             {
-                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.From.GridPosition);
-                if (group.Count > 0) foundMatches.AddRange(group);
+                if (positionsCache.TryGetValue(groups[i].Positions[j], out var pos)) posGroup.Add(pos);
             }
-            if (context.To.IsBonus)
-            {
-                var group = _field.MatchEvaluator.FindAllBonuses(snapshot, context.To.GridPosition);
-                if (group.Count > 0) foundMatches.AddRange(group);
-            }
-        }
-        else
-        {
-            var group = _field.MatchEvaluator.FindAll(snapshot);
-            if (group.Count > 0) foundMatches.AddRange(group);
+
+            var targetSpawnPos = posGroup.Contains(posDest) ? posDest
+                                  : posGroup.Contains(posSource) ? posSource
+                                  : posGroup[0]; 
+
+            machine.SpawnEvaluator.EvaluateBonusSpawn(SpawnRules, posGroup, targetSpawnPos, spawns);
         }
 
-        if (foundMatches.Count == 0)
+        machine.Blackboard.CurrentBonuses = spawns;
+
+        CollectionPool<List<Vector2Int>, Vector2Int>.Release(posGroup);
+        CollectionPool<List<SpawnInfo>, SpawnInfo>.Release(spawns);
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+
+        if (groups.Count == 0)
         {
-            _fsm.Switch(StateEvent.NoMatches, context);
-            return;
+            machine.Switch(StateEvent.NoMatches);
+        } else
+        {
+            // записывает в блекборд список групп 
+            machine.Blackboard.CurrentMatches = groups;
+            //переъод к удалению
+            machine.Switch(StateEvent.MatchesFound);
         }
+
         
-        context.Matches = foundMatches;
-        //_field.ScoreManager.CalculateScore(context.Matches, context.CascadeIteration);
-
-        context.Snapshot = snapshot;
-
-        context.CascadeIteration += 1;
-        _fsm.Switch(StateEvent.MatchesFound, context);
     }
 }
 
@@ -1826,7 +1928,7 @@ public enum StateEvent
     NoMatches,
     MatchesFound,
     DestroyTiles,
-    CompactTiles,
+    FillUpTiles,
     FillEmptyTiles,
     HasMoves,
     NoMovesLeft,
@@ -1855,6 +1957,7 @@ public class FieldStates : ScriptableObject
         if (mappings == null) return;
         foreach (var mapping in mappings)
         {
+            if (mapping?.State == null || mapping.Transitions == null || mapping.Transitions.Count == 0) continue;
             if (mapping.Transitions != null && mapping.Transitions.Count > 0)
                 _lookup[mapping.State] = mapping.Transitions.ToDictionary(v => v.Event, v => v.State);
         }
@@ -1864,69 +1967,105 @@ public class FieldStates : ScriptableObject
     public GameState GetTransition(GameState type, StateEvent e)
     {
         if (_lookup == null) BuildLookup();
-        _lookup.TryGetValue(type, out var transitions);
-        transitions.TryGetValue(e, out var state);
-        return state;
+        if (_lookup.TryGetValue(type, out var transitions) && transitions.TryGetValue(e, out var state)) return state;
+        return null;
     }
 }
  
 ======================================== 
  
  
-[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\FillState.cs] - Файл №!COUNT! 
+[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\FillUpState.cs] - Файл №!COUNT! 
 ---------------------------------------- 
-using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
-using static UnityEngine.Rendering.DebugUI.Table;
+using UnityEngine.Pool;
 
-[CreateAssetMenu(fileName = "FillState", menuName = "Scriptable Objects/FillState")]
-public class FillState : GameState
+[CreateAssetMenu(fileName = "FillUpState", menuName = "Scriptable Objects/FillUpState")]
+public class FillUpState : GameState
 {
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public Events Events;
+    [Req] public SpawnRules SpawnRules;
+    [Req] public MatchRules MatchRules;
+
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
+        
+        var bounds = machine.Field.GetBounds();
+        var snapshot = machine.Field.ToSnapshot();
 
-        _field.FillEmptyTilesOnGrid(context.CascadeIteration);
-
-        AnimateFillEmpty();
-
-        _fsm.Switch(StateEvent.FillEmptyTiles, context);
-    }
-
-    private void AnimateFillEmpty()
-    {
-        var fillAnimList = new List<AnimationData>();
-
-        var bounds = _field.GetBounds();
-
-        for (var i = 0; i < bounds.x; i++)
+        //спавним бонусы если есть
+        if (machine.Blackboard.CurrentBonuses != null && machine.Blackboard.CurrentBonuses.Count > 0)
         {
-            for (var j = 0; j < bounds.y; j++)
+            var bonuses = machine.Blackboard.CurrentBonuses;
+            for (var i = 0; i < bonuses.Count; i++)
             {
-                var tile = _field.GetTileAt(new Vector2Int(i, j));
-                if (tile == null) continue;
-
-                Vector3 targetWorldPosition = _field.GetWorldPos(tile.GridPosition);
-
-                if (tile.transform.position != targetWorldPosition)
+                var tile = new LogicalTile
                 {
-                    var data = new AnimationData
-                    {
-                        Type = AnimationType.Move,
-                        Target = tile.transform,
-                        TargetPosition = targetWorldPosition,
-                        Duration = 1.0f
-                    };
-                    fillAnimList.Add(data);
-                }
+                    Id = machine.Field.GenerateUniqueId(),
+                    Type = bonuses[i].Type,
+                };
+                machine.Field.SetTileAt(bonuses[i].Position, tile);
+                snapshot[bonuses[i].Position.x, bonuses[i].Position.y] = tile;
             }
         }
+        
 
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, fillAnimList);
+
+        //считаем какие плитки упадут на какие места
+        var transitions = CollectionPool<List<TileTransitionData>, TileTransitionData>.Get();
+        transitions.Clear();
+        for (var j = 0; j < bounds.y; j++)
+        {
+            var ctx = new AlgoritmContext
+            {
+                Snapshot = snapshot,
+            };
+            TwoPointers.Run(new Vector2Int(0, j), ctx, transitions);
+        }
+
+        for (var i = 0; i < transitions.Count; i++)
+        {
+            var transition = transitions[i];
+
+            //var from = machine.Field.GetTileAt(transition.From);
+            //var to = machine.Field.GetTileAt(transition.To);
+            var from = snapshot[transition.From.x, transition.From.y];
+            var to = snapshot[transition.To.x, transition.To.y];
+
+            machine.Field.SetTileAt(transition.From, to);
+            machine.Field.SetTileAt(transition.To, from);
+
+            snapshot[transition.From.x, transition.From.y] = to;
+            snapshot[transition.To.x, transition.To.y] = from;
+        }
+        CollectionPool<List<TileTransitionData>, TileTransitionData>.Release(transitions);
+
+        //заполнение пустых
+        var spawns = CollectionPool<List<SpawnInfo>, SpawnInfo>.Get();
+        spawns.Clear();
+        machine.SpawnEvaluator.Evaluate(snapshot, SpawnRules, spawns);
+
+        for (var i = 0; i < spawns.Count; i++)
+        {
+            //подумать будет ли случай, когда на позиции бонуса будет не нулл и что с этим делать
+
+            var tile = new LogicalTile
+            {
+                Id = machine.Field.GenerateUniqueId(),
+                Type = spawns[i].Type,
+            };
+            machine.Field.SetTileAt(spawns[i].Position, tile);
+
+            snapshot[spawns[i].Position.x, spawns[i].Position.y] = tile;
+        }
+        CollectionPool<List<SpawnInfo>, SpawnInfo>.Release(spawns);
+
+        var name = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        machine.Switch(StateEvent.FillUpTiles);
     }
 }
  
@@ -1938,23 +2077,6 @@ public class FillState : GameState
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-
-public struct TransitionContext
-{
-    public StateEvent Type;
-    public Tile From;
-    public Tile To;
-    public Vector2Int PositionFrom;
-    public Vector2Int PositionTo;
-
-    public HintInfo CurrentHint { get; set; }
-    public bool HasAvailableMoves { get; set; }
-
-    public List<CompactInfo> Compacts {  get; internal set; }
-    public List<MatchInfo> Matches { get; internal set; }
-    public int CascadeIteration { get; internal set; }
-    public Tile.Snapshot?[,] Snapshot { get; internal set; }
-}
 
 public abstract class GameState : ScriptableObject 
 {
@@ -1968,60 +2090,6 @@ public abstract class GameState : ScriptableObject
 ======================================== 
  
  
-[C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\HintState.cs] - Файл №!COUNT! 
----------------------------------------- 
-using System.Threading.Tasks;
-using UnityEngine;
-using static UnityEngine.Rendering.DebugUI.Table;
-
-public struct HintInfo
-{
-    public Tile Tile1;
-    public Tile Tile2;
-}
-
-[CreateAssetMenu(fileName = "HintState", menuName = "Scriptable Objects/HintState")]
-public class HintState : GameState
-{
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context)
-    {
-        _field = field;
-        _fsm = machine;
-
-        var snapshot = _field.ToSnapshot();
-
-        var coords = _field.MatchEvaluator.FindAvailableHint(snapshot);
-
-        if (coords == null)
-        {
-            _fsm.Switch(StateEvent.NoMovesLeft, context); 
-            return;
-        }
-
-        context.CurrentHint = new HintInfo
-        {
-            Tile1 = _field.GetTileAt(coords.Value.pos1),
-            Tile2 = _field.GetTileAt(coords.Value.pos2)
-        };
-
-        AnimateHint(context);
-
-        _fsm.Switch(StateEvent.HasMoves, context);
-    }
-
-    private void AnimateHint(TransitionContext context)
-    {
-        var hint = context.CurrentHint;
-        if (hint.Tile1 == null || hint.Tile2 == null) return;
-
-        // Чистая таска анимации покачивания на экране
-        //await _field.AnimationManager.DoHintWiggleAsync(hint.Tile1.transform, hint.Tile2.transform);
-    }
-}
- 
-======================================== 
- 
- 
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\IdleState.cs] - Файл №!COUNT! 
 ---------------------------------------- 
 using System;
@@ -2030,28 +2098,38 @@ using UnityEngine.InputSystem;
 
 public struct IdleTransitionData
 {
-    Vector2Int FromPos {  get; set; }
-    Vector2Int FromStartPos { get; set; }
-    Vector2Int ToPos { get; set; }
-    Vector2Int ToStartPos { get; set; }
+    public Vector2Int FromPos {  get; set; }
+    public Vector2Int FromStartPos { get; set; }
+    public Vector2Int ToPos { get; set; }
+    public Vector2Int ToStartPos { get; set; }
+}
+
+public struct SwapInfo
+{
+    public Guid SourceId {  get; set; }
+    public Guid DestId { get; set; }
 }
 
 
 [CreateAssetMenu(fileName = "IdleState", menuName = "Scriptable Objects/IdleState")]
 public class IdleState : GameState
 {
+    [Req] public Events Events;
     public override void Enter(FiniteStateMachine machine)
     {
-        var name = machine.Events.GetBusName(GameEvent.Input);
+        _fsm = machine;
+        var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, true);
-        GameplayEventBus<IdleTransitionData>.Register(name, OnFieldEvent);
+        GameplayEventBus<SwapInfo>.Register(name, OnFieldEvent);
     }
 
-    public void OnFieldEvent(IdleTransitionData eventData)
+    public void OnFieldEvent(SwapInfo eventData)
     {
-        var name = _fsm.Events.GetBusName(GameEvent.Input);
+        var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, false);
-        GameplayEventBus<IdleTransitionData>.Unregister(name, OnFieldEvent);
+        GameplayEventBus<SwapInfo>.Unregister(name, OnFieldEvent);
+
+        _fsm.Blackboard.SourceDest = eventData;
 
         _fsm.Switch(StateEvent.MoveTiles);
     }
@@ -2071,13 +2149,17 @@ using static UnityEngine.Rendering.DebugUI.Table;
 [CreateAssetMenu(fileName = "LoadingState", menuName = "Scriptable Objects/LoadingState")]
 public class LoadingState : GameState
 {
+    [Req] public MatchRules MatchRules;
+    [Req] public SpawnRules SpawnRules;
+    [Req] public Events Events;
     public override void Enter(FiniteStateMachine machine)
     {
-        var name = machine.Events.GetBusName(GameEvent.Input);
+        var name = Events.GetBusName(GameEvent.Input);
         GameplayEventBus<bool>.Trigger(name, false);
 
 
         var bounds = machine.Field.GetBounds();
+
         for (var i = 0; i < bounds.x; i++)
         {
             for (var j = 0; j < bounds.y; j++)
@@ -2086,14 +2168,20 @@ public class LoadingState : GameState
                 {
                     Id = machine.Field.GenerateUniqueId(),
                     //todo: сделать неслучайный спавн
-                    Type = (TileType)UnityEngine.Random.Range(1, 6)
-
+                    Type = TileKind.Regular((RegularType)UnityEngine.Random.Range(0,6))
                 };
-                _fsm.Field.SetTileAt(new Vector2Int(i, j), tile);
+                machine.Field.SetTileAt(new Vector2Int(i, j), tile);
             }
         }
 
-        _fsm.Switch(StateEvent.FinishLoading);
+        var animname = Events.GetBusName(GameEvent.Animation);
+        var snapshot = machine.Field.ToSnapshot();
+
+        
+
+        GameplayEventBus<LogicalTile?[,]>.Trigger(animname, snapshot);
+
+        machine.Switch(StateEvent.FinishLoading);
     }
 }
  
@@ -2106,52 +2194,44 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Pool;
+using static UnityEditor.PlayerSettings;
 using static UnityEngine.Rendering.DebugUI;
 
 [CreateAssetMenu(fileName = "RemoveState", menuName = "Scriptable Objects/RemoveState")]
 public class RemoveState : GameState
 {
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public Events Events;
+
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
+        machine.Field.ToPositionChache(positionsCache);
 
-        foreach (var match in context.Matches)
+
+        var matches = machine.Blackboard.CurrentMatches;
+        for (var i = 0; i < matches.Count; i++)
         {
-            _field.RemoveTiles(match.Positions);
-        }
-        
-        AnimateDestroy(context);
-
-        _fsm.Switch(StateEvent.DestroyTiles, context);
-    }
-
-    private void AnimateDestroy(TransitionContext context)
-    {
-        var destroyAnimList = new List<AnimationData>();
-
-        foreach (var group in context.Matches)
-        {
-            foreach (var tilePos in group.Positions)
+            var match = matches[i];
+            for (var j = 0; j < match.Positions.Count; j++)
             {
-                if (context.Snapshot[tilePos.x, tilePos.y]  is not null)
+                var id = match.Positions[j];
+                if (positionsCache.TryGetValue(id, out var pos))
                 {
-                    //var tile = _field.GetTileAt(tilePos);
-                    var tile = context.Snapshot[tilePos.x, tilePos.y].Value.Transform;
-
-                    var data = new AnimationData
-                    {
-                        Type = AnimationType.Destroy,
-                        Target = tile,
-                        Duration = 1.0f,
-                    };
-                    destroyAnimList.Add(data);
+                    //todo как будто не хватает очистки словаря на всякий случай
+                    machine.Field.ClearTileAt(pos);
                 }
             }
         }
 
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, destroyAnimList);
+        var name = Events.GetBusName(GameEvent.Animation);
+        var snapshot = machine.Field.ToSnapshot();
+        GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+
+        machine.Switch(StateEvent.DestroyTiles);
     }
 }
  
@@ -2160,50 +2240,42 @@ public class RemoveState : GameState
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\SwapBackState.cs] - Файл №!COUNT! 
 ---------------------------------------- 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
 
 [CreateAssetMenu(fileName = "SwapBackState", menuName = "Scriptable Objects/SwapBackState")]
 public class SwapBackState : GameState
 {
-    public override void Enter(Field field, FiniteStateMachine machine, TransitionContext context = default)
+    [Req] public Events Events;
+    public override void Enter(FiniteStateMachine machine)
     {
-        _field = field;
-        _fsm = machine;
+        var sourceId = machine.Blackboard.SourceDest.SourceId;
+        var destId = machine.Blackboard.SourceDest.DestId;
 
-        _field.SwapTiles(context.From, context.PositionFrom, context.To, context.PositionTo);
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
+        machine.Field.ToPositionChache(positionsCache);
 
-        AnimateSwap(context);
 
-        _fsm.Switch(StateEvent.SwapBack, context);
-    }
-
-    private void AnimateSwap(TransitionContext context)
-    {
-        var animationDataList = new List<AnimationData>();
-
-        // From возвращается на свою родную позицию (PositionFrom)
-        var dataFrom = new AnimationData
+        if (positionsCache.TryGetValue(sourceId, out var sourcePos) &&
+        positionsCache.TryGetValue(destId, out var destPos))
         {
-            Type = AnimationType.Move,
-            Target = context.From.transform,
-            TargetPosition = _field.GetWorldPos(context.PositionFrom),
-            Duration = 1.0f
-        };
-        animationDataList.Add(dataFrom);
+            var source = machine.Field.GetTileAt(sourceId);
+            var dest = machine.Field.GetTileAt(destId);
 
-        // To возвращается на свою родную позицию (PositionTo)
-        var dataTo = new AnimationData
-        {
-            Type = AnimationType.Move,
-            Target = context.To.transform,
-            TargetPosition = _field.GetWorldPos(context.PositionTo),
-            Duration = 1.0f
-        };
-        animationDataList.Add(dataTo);
+            machine.Field.SetTileAt(sourcePos, dest);
+            machine.Field.SetTileAt(destPos, source);
+        }
 
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+
+        var snapshot = machine.Field.ToSnapshot();
+        var name = Events.GetBusName(GameEvent.Animation);
+        GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        machine.Switch(StateEvent.SwapBack);
     }
 }
  
@@ -2212,50 +2284,38 @@ public class SwapBackState : GameState
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\States\SwapState.cs] - Файл №!COUNT! 
 ---------------------------------------- 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Pool;
 
 [CreateAssetMenu(fileName = "SwapState", menuName = "Scriptable Objects/SwapState")]
 public class SwapState : GameState
 {
     public override void Enter(FiniteStateMachine machine)
     {
-        //_fsm = machine;
+        var sourceId = machine.Blackboard.SourceDest.SourceId;
+        var destId = machine.Blackboard.SourceDest.DestId;
 
-        //machine.Field.SwapTiles(context.From, context.PositionTo, context.To, context.PositionFrom);
-
-        //AnimateSwap();
-
-
-        //_fsm.Switch(StateEvent.Swap, context);
-    }
+        var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
+        positionsCache.Clear();
+        machine.Field.ToPositionChache(positionsCache);
 
 
-    private void AnimateSwap(TransitionContext context)
-    {
-        var animationDataList = new List<AnimationData>();
-
-        var dataFrom = new AnimationData
+        if (positionsCache.TryGetValue(sourceId, out var sourcePos) &&
+        positionsCache.TryGetValue(destId, out var destPos))
         {
-            Type = AnimationType.Move,
-            Target = context.From.transform,
-            TargetPosition = _field.GetWorldPos(context.PositionTo),
-            Duration = 1.0f
-        };
-        animationDataList.Add(dataFrom);
+            var source = machine.Field.GetTileAt(sourceId);
+            var dest = machine.Field.GetTileAt(destId);
 
-        var dataTo = new AnimationData
-        {
-            Type = AnimationType.Move,
-            Target = context.To.transform,
-            TargetPosition = _field.GetWorldPos(context.PositionFrom),
-            Duration = 1.0f
-        };
-        animationDataList.Add(dataTo);
+            machine.Field.SetTileAt(sourcePos, dest);
+            machine.Field.SetTileAt(destPos, source);
+        }
 
-        var name = _fsm.Events.GetBusName(GameEvent.Animation);
-        GameplayEventBus<List<AnimationData>>.Trigger(name, animationDataList);
+        DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
+
+        machine.Switch(StateEvent.Swap);
     }
 }
 
@@ -2273,10 +2333,20 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [Serializable]
-public class TileTypeRuleMapping
+public class RegularTileTypeRuleMapping
 {
     [Tooltip("Тип тайла")]
-    public TileType tileType;
+    public RegularType tileType;
+
+    [Tooltip("Правила, которые применяются к этому типу")]
+    public List<TileMatchRuleBase> rules;
+}
+
+[Serializable]
+public class BonusTileTypeRuleMapping
+{
+    [Tooltip("Тип тайла")]
+    public BonusType tileType;
 
     [Tooltip("Правила, которые применяются к этому типу")]
     public List<TileMatchRuleBase> rules;
@@ -2287,10 +2357,16 @@ public class TileTypeRuleMapping
 public class MatchRules : ScriptableObject
 {
     [SerializeField]
-    private List<TileTypeRuleMapping> mappings;
+    private List<RegularTileTypeRuleMapping> regularMappings;
+
+    [SerializeField]
+    private List<BonusTileTypeRuleMapping> bonusMappings;
 
     // Для быстрого доступа можно построить словарь в рантайме
-    private Dictionary<TileType, List<TileMatchRuleBase>> lookup;
+    private Dictionary<RegularType, IReadOnlyList<TileMatchRuleBase>> regularLookup;
+    private Dictionary<BonusType, IReadOnlyList<TileMatchRuleBase>> bonusLookup;
+
+    private readonly IReadOnlyList<TileMatchRuleBase> EmptyRules = new List<TileMatchRuleBase>().AsReadOnly();
 
     private void OnEnable()
     {
@@ -2299,27 +2375,59 @@ public class MatchRules : ScriptableObject
 
     private void BuildLookup()
     {
-        lookup = new Dictionary<TileType, List<TileMatchRuleBase>>();
-        if (mappings == null) return;
-        foreach (var mapping in mappings)
+        regularLookup = new Dictionary<RegularType, IReadOnlyList<TileMatchRuleBase>>();
+        if (regularMappings is not null)
         {
-            if (mapping.rules != null && mapping.rules.Count > 0)
-                lookup[mapping.tileType] = mapping.rules;
+            foreach (var mapping in regularMappings)
+            {
+                if (mapping.rules != null && mapping.rules.Count > 0)
+                {
+                    // Используем индексатор, чтобы безопасно перезаписать данные, если тип продублирован в инспекторе
+                    regularLookup[mapping.tileType] = mapping.rules;
+                }
+            }
+        }
+
+        bonusLookup = new Dictionary<BonusType, IReadOnlyList<TileMatchRuleBase>>();
+        if (bonusMappings is not null)
+        {
+            foreach (var mapping in bonusMappings)
+            {
+                if (mapping.rules != null && mapping.rules.Count > 0)
+                {
+                    bonusLookup[mapping.tileType] = mapping.rules;
+                }
+            }
         }
     }
 
     /// <summary>Возвращает все правила для указанного типа тайла</summary>
-    public List<TileMatchRuleBase> GetRules(TileType type)
+
+
+    public IReadOnlyList<TileMatchRuleBase> GetRules(TileKind type)
     {
-        if (lookup == null) BuildLookup();
-        lookup.TryGetValue(type, out var rules);
-        return rules ?? new List<TileMatchRuleBase>();
+        return type.KindType switch
+        {
+            TileKindType.Regular => RegularRule(type.RegularType),
+            TileKindType.Bonus => BonusRule(type.BonusType),
+            _ => EmptyRules
+        };
     }
 
-    public TileMatchRuleBase GetRule(TileType type)
+    private IReadOnlyList<TileMatchRuleBase> RegularRule(RegularType type)
     {
-        var rules = GetRules(type);
-        return rules.Count > 0 ? rules[0] : null;
+        if (regularLookup != null && regularLookup.TryGetValue(type, out var rules))
+            return rules;
+
+        return EmptyRules;
+    }
+
+    private IReadOnlyList<TileMatchRuleBase> BonusRule(BonusType type)
+    {
+        if (bonusLookup != null && bonusLookup.TryGetValue(type, out var rules))
+            return rules;
+
+        return EmptyRules;
     }
 }
 
@@ -2336,13 +2444,18 @@ using UnityEngine;
 [Serializable]
 public class TileBombMatchRule : TileMatchRuleBase
 {
-    [SerializeField] private int ExplosionRadius = 1;
+    [SerializeField]
+    private int _explosionRadius = 1;
 
-    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    public override bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target)
     {
-        Vector2Int diff = target - source;
+        // Вычисляем расстояние от источника взрыва (Source) до проверяемой плитки (Target)
+        Vector2Int diff = target.Position - source.Position;
+
+        // Чебышёвское расстояние (радиус квадрата вокруг бомбы)
         int distance = Mathf.Max(Mathf.Abs(diff.x), Mathf.Abs(diff.y));
-        return distance <= ExplosionRadius;
+
+        return distance <= _explosionRadius;
     }
 }
  
@@ -2359,12 +2472,20 @@ using static Tile;
 [Serializable]
 public class TileCommonMatchRule : TileMatchRuleBase
 {
-
-    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    public override bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target)
     {
-        return Mathf.Abs(target.x - current.x) + Mathf.Abs(target.y - current.y) == 1 &&
-            board[current.x, current.y] is Snapshot c && board[target.x, target.y] is Snapshot t &&
-            (c.Type == t.Type);
+        int manhattanDistance = Mathf.Abs(target.Position.x - current.Position.x) +
+                               Mathf.Abs(target.Position.y - current.Position.y);
+
+        if (manhattanDistance != 1) return false;
+
+        // 2. Проверяем логику: обе плитки должны быть обычными (Regular) и одного цвета
+        if (current.Kind.KindType == TileKindType.Regular && target.Kind.KindType == TileKindType.Regular)
+        {
+            return current.Kind.RegularType == target.Kind.RegularType;
+        }
+
+        return false;
     }
 } 
 ======================================== 
@@ -2376,31 +2497,38 @@ public class TileCommonMatchRule : TileMatchRuleBase
 using System;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "TileHorizontalBombMatchRule", menuName = "Rules/HorizontalBomb")]
-[Serializable]
+[CreateAssetMenu(fileName = "TileHorizontalBombMatchRule", menuName = "Rules/Horizontal Bomb")]
 public class TileHorizontalBombMatchRule : TileMatchRuleBase
 {
-    [SerializeField] private Vector2Int Axis = Vector2Int.left;
-
-    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    public override bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target)
     {
-        return target.y == source.y;
+        // Цель находится на той же горизонтальной линии (в той же строке), что и источник
+        return target.Position.y == source.Position.y;
     }
-} 
+}
+ 
 ======================================== 
  
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileMatchRules\TileMatchRule.cs] - Файл №!COUNT! 
 ---------------------------------------- 
-﻿using NUnit.Framework;
-using System;
-using Unity.VisualScripting;
-using UnityEngine;
-using static Tile;
+﻿using UnityEngine;
 
-public abstract class TileMatchRuleBase: ScriptableObject
+public readonly struct TileSnapshot
 {
-    public abstract bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target);
+    public readonly Vector2Int Position;
+    public readonly TileKind Kind;
+
+    public TileSnapshot(Vector2Int position, TileKind kind)
+    {
+        Position = position;
+        Kind = kind;
+    }
+}
+
+public abstract class TileMatchRuleBase : ScriptableObject
+{
+    public abstract bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target);
 }
  
 ======================================== 
@@ -2411,18 +2539,15 @@ public abstract class TileMatchRuleBase: ScriptableObject
 using System;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "TileVerticalBombMatchRule", menuName = "Rules/VerticalBomb")]
-[Serializable]
+[CreateAssetMenu(fileName = "TileVerticalBombMatchRule", menuName = "Rules/Vertical Bomb")]
 public class TileVerticalBombMatchRule : TileMatchRuleBase
 {
-    [SerializeField] private Vector2Int Axis = Vector2Int.down;
-
-    public override bool IsMatch(Tile.Snapshot?[,] board, Vector2Int source, Vector2Int current, Vector2Int target)
+    public override bool IsMatch(in TileSnapshot source, in TileSnapshot current, in TileSnapshot target)
     {
-        return target.x == source.x;
+        // Цель находится на той же вертикальной линии (в том же столбце), что и источник
+        return target.Position.x == source.Position.x;
     }
-}
- 
+} 
 ======================================== 
  
  
@@ -2438,7 +2563,7 @@ using UnityEngine;
 public class TileTypeSpawnRuleMapping
 {
     [Tooltip("Тип тайла")]
-    public TileType tileType;
+    public BonusType tileType;
 
     [Tooltip("Правила, которые применяются к этому типу")]
     public List<TileSpawnRuleBase> rules;
@@ -2450,8 +2575,8 @@ public class SpawnRules : ScriptableObject
     [SerializeField]
     private List<TileTypeSpawnRuleMapping> mappings;
 
-    // Для быстрого доступа можно построить словарь в рантайме
-    private Dictionary<TileType, List<TileSpawnRuleBase>> lookup;
+    private Dictionary<int, IReadOnlyList<TileSpawnRuleBase>> bonusLookup;
+    private readonly IReadOnlyList<TileSpawnRuleBase> EmptyRules = new List<TileSpawnRuleBase>().AsReadOnly();
 
     private void OnEnable()
     {
@@ -2460,30 +2585,51 @@ public class SpawnRules : ScriptableObject
 
     private void BuildLookup()
     {
-        lookup = new Dictionary<TileType, List<TileSpawnRuleBase>>();
+        var workingLookup = new Dictionary<int, List<TileSpawnRuleBase>>();
+
         if (mappings == null) return;
-        foreach (var mapping in mappings)
+
+        for (var i = 0; i < mappings.Count; i++)
         {
-            if (mapping.rules != null && mapping.rules.Count > 0)
-                lookup[mapping.tileType] = mapping.rules;
+            var mapping = mappings[i];
+            if (mapping.rules is null) continue;
+
+            for (var j = 0; j < mapping.rules.Count; j++)
+            {
+                var rule = mapping.rules[j];
+                if (rule.activeCells is null) continue;
+
+                int count = rule.activeCells.Count;
+
+                if (workingLookup.TryGetValue(count, out var list))
+                {
+                    if (!list.Contains(rule))
+                    {
+                        list.Add(rule);
+                    }
+                }
+                else
+                {
+                    workingLookup[count] = new List<TileSpawnRuleBase> { rule };
+                }
+            }
+        }
+        bonusLookup = new Dictionary<int, IReadOnlyList<TileSpawnRuleBase>>();
+        foreach (var kvp in workingLookup)
+        {
+            bonusLookup[kvp.Key] = kvp.Value;
         }
     }
 
+
     /// <summary>Возвращает все правила для указанного типа тайла</summary>
-    public List<TileSpawnRuleBase> GetRules(TileType type)
+    public IReadOnlyList<TileSpawnRuleBase> GetRules(int groupCount)
     {
-        if (lookup == null) BuildLookup();
-        lookup.TryGetValue(type, out var rules);
-        return rules ?? new List<TileSpawnRuleBase>();
+        if (mappings == null) return EmptyRules;
+        if (bonusLookup == null) return EmptyRules;
+        if (!bonusLookup.TryGetValue(groupCount, out var rules)) return EmptyRules;
+        return rules;
     }
-
-    public TileSpawnRuleBase GetRule(TileType type)
-    {
-        var rules = GetRules(type);
-        return rules.Count > 0 ? rules[0] : null;
-    }
-
-    
 }
  
 ======================================== 
@@ -2523,92 +2669,130 @@ public class TileHorizontalBombSpawnRule : TileSpawnRuleBase
  
 [C:\Users\anatoliy26\source\Unity\Match3\Assets\Game\ScriptableObjects\TileSpawnRules\TileSpawnRule.cs] - Файл №!COUNT! 
 ---------------------------------------- 
+using System;
+using System.Buffers; // Обязательно для работы с ArrayPool
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-
-
-//public abstract class TileSpawnRuleBase : ScriptableObject
-//{
-//    [Tooltip("Размер сетки (ширина, высота)")]
-//    public Vector2Int gridSize;
-//    public List<Vector2Int> activeCells;
-//    [Req]public TileType Type;
-//    public abstract bool IsMatch(IEnumerable<Vector2Int> cells);
-//}
 
 public abstract class TileSpawnRuleBase : ScriptableObject
 {
-    [Tooltip("Размер сетки (ширина, высота)")]
-    public Vector2Int gridSize;
+    [Tooltip("Эталонная фигура из инспектора")]
     public List<Vector2Int> activeCells;
+
+    [Tooltip("Крутить ли фигуру на 90, 180, 270 градусов при проверке")]
     public bool CheckRotations;
 
-    // [Req] сохраняем ваш кастомный атрибут, если он необходим
-    public TileType Type;
+    [Tooltip("Какой бонус спавнить, если геометрия совпала")]
+    public BonusType BonusType;
 
-    /// <summary>
-    /// Универсальный метод нормализации координат любой фигуры.
-    /// </summary>
-    public HashSet<Vector2Int> Normalize(HashSet<Vector2Int> cells)
+    // Сигнатура под твой List<Vector2Int> из BFS
+    public virtual bool IsMatch(List<Vector2Int> groupCells)
     {
-        if (cells == null || cells.Count == 0) return new HashSet<Vector2Int>();
+        if (groupCells == null || activeCells == null) return false;
 
-        // ИСПРАВЛЕНО: Теперь минимумы ищутся строго в переданной коллекции cells
-        int minX = int.MaxValue, minY = int.MaxValue;
-        foreach (var c in cells)
-        {
-            if (c.x < minX) minX = c.x;
-            if (c.y < minY) minY = c.y;
-        }
+        int count = activeCells.Count;
+        if (groupCells.Count != count) return false;
 
-        var normalized = new HashSet<Vector2Int>();
-        foreach (var c in cells)
-            normalized.Add(new Vector2Int(c.x - minX, c.y - minY));
+        if (CheckShapeMatch(groupCells, activeCells)) return true;
 
-        return normalized;
-    }
-
-    /// <summary>
-    /// Сделан virtual вместо abstract, чтобы содержать общую для всех бонусов логику сопоставления.
-    /// </summary>
-    public virtual bool IsMatch(IEnumerable<Vector2Int> cells)
-    {
-        if (cells == null) return false;
-
-        var inputCells = new HashSet<Vector2Int>(cells);
-        var inputNormalized = Normalize(inputCells);
-
-        var referenceNormalized = Normalize(activeCells.ToHashSet());
-        if (referenceNormalized.Count != inputNormalized.Count) return false;
-
-        // Проверяем совпадение с учетом всех 4 поворотов
         if (CheckRotations)
-            return GetAllRotations(referenceNormalized).Any(rotated => rotated.SetEquals(inputNormalized));
-        return referenceNormalized.SetEquals(inputNormalized);
-    }
-
-    private IEnumerable<HashSet<Vector2Int>> GetAllRotations(HashSet<Vector2Int> shape)
-    {
-        HashSet<Vector2Int> current = shape;
-        yield return current;
-
-        for (int i = 0; i < 3; i++)
         {
-            current = Rotate90Clockwise(current);
-            yield return current;
+            for (int rotation = 1; rotation <= 3; rotation++)
+            {
+                if (CheckShapeMatchRotated(groupCells, activeCells, rotation)) return true;
+            }
         }
+        return false;
     }
 
-    private HashSet<Vector2Int> Rotate90Clockwise(HashSet<Vector2Int> shape)
+    private bool CheckShapeMatch(List<Vector2Int> input, List<Vector2Int> reference)
     {
-        var rotated = new HashSet<Vector2Int>();
-        foreach (var p in shape)
-            rotated.Add(new Vector2Int(p.y, -p.x));
+        Vector2Int inputMin = GetMinBounds(input);
+        Vector2Int refMin = GetMinBounds(reference);
 
-        return Normalize(rotated);
+        for (int i = 0; i < input.Count; i++)
+        {
+            Vector2Int normInput = input[i] - inputMin;
+            bool found = false;
+
+            for (int j = 0; j < reference.Count; j++)
+            {
+                Vector2Int normRef = reference[j] - refMin;
+                if (normInput == normRef)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+        return true;
     }
-} 
+
+    private bool CheckShapeMatchRotated(List<Vector2Int> input, List<Vector2Int> reference, int rotationSteps)
+    {
+        int count = reference.Count;
+        Vector2Int inputMin = GetMinBounds(input);
+
+        Vector2Int[] rotatedRef = ArrayPool<Vector2Int>.Shared.Rent(count);
+
+        int minX = int.MaxValue;
+        int minY = int.MaxValue;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector2Int p = reference[i];
+
+            for (int r = 0; r < rotationSteps; r++)
+                p = new Vector2Int(p.y, -p.x);
+
+            rotatedRef[i] = p;
+
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+        }
+        Vector2Int refMin = new Vector2Int(minX, minY);
+
+        bool isMatch = true;
+        for (int i = 0; i < input.Count; i++)
+        {
+            Vector2Int normInput = input[i] - inputMin;
+            bool found = false;
+
+            for (int j = 0; j < count; j++)
+            {
+                Vector2Int normRef = rotatedRef[j] - refMin;
+                if (normInput == normRef)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                isMatch = false;
+                break;
+            }
+        }
+
+        ArrayPool<Vector2Int>.Shared.Return(rotatedRef);
+        return isMatch;
+    }
+
+    private Vector2Int GetMinBounds(List<Vector2Int> cells)
+    {
+        int minX = int.MaxValue;
+        int minY = int.MaxValue;
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (cells[i].x < minX) minX = cells[i].x;
+            if (cells[i].y < minY) minY = cells[i].y;
+        }
+        return new Vector2Int(minX, minY);
+    }
+}
+ 
 ======================================== 
  
  

@@ -6,10 +6,9 @@ using UnityEngine.Pool;
 [CreateAssetMenu(fileName = "SwapBackState", menuName = "Scriptable Objects/SwapBackState")]
 public class SwapBackState : GameState
 {
+    [Req] public Events Events;
     public override void Enter(FiniteStateMachine machine)
     {
-        _fsm = machine;
-
         var sourceId = machine.Blackboard.SourceDest.SourceId;
         var destId = machine.Blackboard.SourceDest.DestId;
 
@@ -24,12 +23,16 @@ public class SwapBackState : GameState
             var source = machine.Field.GetTileAt(sourceId);
             var dest = machine.Field.GetTileAt(destId);
 
-            _fsm.Field.SetTileAt(sourcePos, dest);
-            _fsm.Field.SetTileAt(destPos, source);
+            machine.Field.SetTileAt(sourcePos, dest);
+            machine.Field.SetTileAt(destPos, source);
         }
 
         DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 
-        _fsm.Switch(StateEvent.SwapBack);
+        var snapshot = machine.Field.ToSnapshot();
+        var name = Events.GetBusName(GameEvent.AnimationEnd);
+        GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        machine.Switch(StateEvent.SwapBack);
     }
 }
