@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using TMPro;
 using Unity.Mathematics;
 using UnityEditor.PackageManager;
@@ -29,7 +30,7 @@ public class LevelController : MonoBehaviour
     [SerializeField][Req] private Events Events;
 
     [SerializeField][Req] private Canvas Canvas;
-    [SerializeField][Req] private GameObject WinPanel;
+    [SerializeField][Req] private WinPanelController WinPanel;
 
     [SerializeField][Req] private Levels Levels;
     [SerializeField][Req] private SessionData SessionData;
@@ -101,15 +102,13 @@ public class LevelController : MonoBehaviour
 
     private void OnFieldSettled(int step)
     {
-        if (_isLevelEnded) return;
+        var name = Events.GetBusName(GameEvent.FieldSettled);
 
-        if (step > _currentLevelSettings.Steps) EndLevel(isWin: false);
+        bool isTargetReached = _isLevelEnded
+            || step > _currentLevelSettings.Steps
+            || taskList.AreAllGoalsCompleted();
 
-        if (taskList.AreAllGoalsCompleted())
-        {
-            EndLevel(isWin: true);
-            return;
-        }
+        GameplayEventBus<bool>.Trigger(name, isTargetReached);
     }
 
     private void EndLevel(bool isWin)
@@ -123,6 +122,8 @@ public class LevelController : MonoBehaviour
             //показать картинку с бекграунда как финал уровня на весь экран
             //и какие нибудь звездочки типа рарность картинки.
             var spawnedUI = Instantiate(WinPanel, Canvas.transform);
+            //var spawedUIController = spawnedUI.GetComponent<WinPanelController>();
+            spawnedUI.Init(this, _currentLevelSettings.backgroundSprite);
             spawnedUI.transform.SetAsLastSibling(); 
 
             //сформировать снапшот у которого заменить бонусами рандомные ячейки в зависимости от оставшихся ходов

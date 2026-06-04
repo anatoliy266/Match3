@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49904620b83ca2f4e96c7c37a3540f8c, type: 3}
   m_Name: SessionData
   m_EditorClassIdentifier: Assembly-CSharp::SessionData
-  currentLevelId: 0
+  currentLevelId: 4

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class WinPanelController : MonoBehaviour
 {
@@ -8,10 +9,13 @@ public class WinPanelController : MonoBehaviour
     [SerializeField][Req] private SessionData sessionData;
     [SerializeField][Req] private Levels Levels;
 
+    [SerializeField][Req] private Image bgImage;
 
-    public void Init(LevelController levelController)
+
+    public void Init(LevelController levelController, Sprite levelBackground)
     {
         _levelController = levelController;
+        bgImage.sprite = levelBackground;
     }
 
     public void NextLevel()

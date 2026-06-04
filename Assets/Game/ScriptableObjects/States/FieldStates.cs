@@ -41,7 +41,8 @@ public enum StateEvent
     SwapBack,
     SpawnBonus,
     SwapBonus,
-    AnimationEnd
+    AnimationEnd,
+    Final
 }
 
 

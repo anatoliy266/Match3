@@ -9,7 +9,8 @@ public enum GameEvent
     Score,
     ShaderImpact,
     ShaderDestroyTile,
-    FieldSettled
+    FieldSettled,
+    Final
 }
 
 

@@ -173,7 +173,7 @@ MonoBehaviour:
   tileTypeData: {fileID: 11400000, guid: 3270b72b4181f074fa77195bda449bb0, type: 2}
   Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
   Canvas: {fileID: 803574533}
-  WinPanel: {fileID: 8377693820595859694, guid: ade7f6da155c13340be03fdddb93d211, type: 3}
+  WinPanel: {fileID: 5480420937422491863, guid: ade7f6da155c13340be03fdddb93d211, type: 3}
   Levels: {fileID: 11400000, guid: fc57105ad36e2d141b044c12b6af79b0, type: 2}
   SessionData: {fileID: 11400000, guid: ed10715419595b849b82f79a968fc344, type: 2}
 --- !u!1 &168351440

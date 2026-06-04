@@ -16,8 +16,8 @@ public class LevelsMenuController : MonoBehaviour
 
     public void Initialize()
     {
-        if (Levels is null) return;
-        for (var i = 0; i < Levels.LevelsCount; i++)
+        if (Levels == null) return;
+        for (var i = 1; i <= Levels.LevelsCount; i++)
         {
             var levelItem = Instantiate(levelMenuItem, this.transform);
             levelItem.Fill(Levels.GetLevelSettings(i), this);

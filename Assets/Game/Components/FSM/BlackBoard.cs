@@ -28,12 +28,18 @@ public class FieldBlackboard
 
     // Флаг для проверки окончания игры (Game Over)
     public bool HasAvailableMoves { get; set; }
+
+
     public int Step { get; internal set; }
+
+    public int MaxSteps {  get; internal set; }
+
+    public List<Vector2Int> FinalBonuses { get; set; } = new List<Vector2Int>();
 
     // Данные для подсказки игроку
     //public HintInfo CurrentHint { get; set; }
 
-
+    public bool IsFinalState { get; internal set; }
 
     // ==========================================
     // МЕТОД СБРОСА (Вызывается при переходе в IdleState в конце хода)
