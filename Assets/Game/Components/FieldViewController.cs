@@ -3,9 +3,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
-using UnityEngine.Timeline;
-using static UnityEditor.PlayerSettings;
-using static UnityEditor.Progress;
 
 public enum AnimateAction
 {
@@ -26,6 +23,16 @@ public struct AnimationData
     public Vector2Int To;
     public AnimateAction Action;
     public float Delay;
+    public bool IsBonusAffected;
+    public BonusType SourceBonusType;
+    public Vector2Int SourceBonusPos;
+}
+
+readonly struct BonusSource
+{
+    public readonly Vector2Int Position;
+    public readonly BonusType Type;
+    public BonusSource(Vector2Int pos, BonusType type) { Position = pos; Type = type; }
 }
 
 
@@ -33,6 +40,7 @@ public class FieldViewController : MonoBehaviour
 {
     [Req] public FieldView View;
     [Req] public Events Events;
+    [Req] public MatchRules BonusMatchRules;
 
     private Queue<LogicalTile?[,]> _queue = new Queue<LogicalTile?[,]>();
     private bool _isPlaying;
@@ -181,16 +189,51 @@ public class FieldViewController : MonoBehaviour
         }
 
         //те что остались - на удаление (идем по безопасной копии, которую не трогали в TryValue)
+        var bonusSources = ListPool<BonusSource>.Get();
+
         foreach (var kvp in dictCopy)
         {
+            var pos = kvp.Value;
+            var tile = _prevSnapshot[pos.x, pos.y];
+
+            bool isBonus = tile is not null && tile.Value.Type.KindType == TileKindType.Bonus;
+
+            if (isBonus)
+                bonusSources.Add(new BonusSource(pos, tile.Value.Type.BonusType));
+
             var data = new AnimationData
             {
                 Id = kvp.Key,
-                From = kvp.Value,
+                From = pos,
                 Action = AnimateAction.Destroy,
+                IsBonusAffected = isBonus,
+                SourceBonusType = tile is not null ? tile.Value.Type.BonusType : default,
+                SourceBonusPos = pos,
             };
             animData.Add(data);
         }
+
+        if (bonusSources.Count > 0)
+        {
+            var animItems = animData;
+            for (int i = 0; i < animItems.Count; i++)
+            {
+                var item = animItems[i];
+                if (item.Action != AnimateAction.Destroy || item.IsBonusAffected)
+                    continue;
+
+                var bs = CheckIsBonusAffected(item.From, _prevSnapshot, bonusSources);
+                if (bs.HasValue)
+                {
+                    item.IsBonusAffected = true;
+                    item.SourceBonusType = bs.Value.Type;
+                    item.SourceBonusPos = bs.Value.Position;
+                    animItems[i] = item;
+                }
+            }
+        }
+
+        ListPool<BonusSource>.Release(bonusSources);
 
         // Возвращаем временные словари в пул
         UnityEngine.Pool.DictionaryPool<Guid, Vector2Int>.Release(dict);
@@ -227,7 +270,11 @@ public class FieldViewController : MonoBehaviour
             {
                 case AnimateAction.Spawn: tileSeq = GetSpawnSequence(item); break;
                 case AnimateAction.Move: tileSeq = GetMoveSequence(item); break;
-                case AnimateAction.Destroy: tileSeq = GetDestroySequence(item); break;
+                case AnimateAction.Destroy:
+                    tileSeq = item.IsBonusAffected
+                        ? GetBonusDestroySequence(item, item.SourceBonusType)
+                        : GetDestroySequence(item);
+                    break;
                 default: tileSeq = Sequence.Create(); break;
             }
 
@@ -257,6 +304,30 @@ public class FieldViewController : MonoBehaviour
         });
     }
 
+
+    private BonusSource? CheckIsBonusAffected(Vector2Int tilePos, LogicalTile?[,] snapshot, List<BonusSource> sources)
+    {
+        for (int i = 0; i < sources.Count; i++)
+        {
+            var src = sources[i];
+            var tileKind = TileKind.Bonus(src.Type);
+            var rules = BonusMatchRules.GetRules(tileKind);
+            if (rules.Count == 0) continue;
+
+            var tile = snapshot[tilePos.x, tilePos.y];
+            if (tile is null) continue;
+
+            var sourceSnap = new TileSnapshot(src.Position, snapshot[src.Position.x, src.Position.y].Value.Type);
+            var targetSnap = new TileSnapshot(tilePos, tile.Value.Type);
+
+            for (int r = 0; r < rules.Count; r++)
+            {
+                if (rules[r].IsMatch(in sourceSnap, in sourceSnap, in targetSnap))
+                    return src;
+            }
+        }
+        return null;
+    }
 
     private const float StretchY = 1.15f;
     private const float SquashY = 0.85f;
@@ -330,6 +401,37 @@ public class FieldViewController : MonoBehaviour
             /// для бонусов
         }
         
+
+        seq.Chain(Tween.Scale(target.transform, new Vector3(1.2f, 1.2f, 1f), 0.05f, Ease.OutQuad));
+        seq.Chain(Tween.Scale(target.transform, Vector3.zero, 0.15f, Ease.InBack).OnComplete(() =>
+        {
+            View.ClearVisualTile(dataItem.Id);
+        }));
+
+        return seq;
+    }
+
+    private Sequence GetBonusDestroySequence(AnimationData dataItem, BonusType bonusType)
+    {
+        var target = View.GetVisualTileAt(dataItem.Id);
+        if (target == null) return Sequence.Create();
+
+        var seq = Sequence.Create();
+
+        if (bonusType == BonusType.HorizontalBomb)
+        {
+            float distance = Mathf.Abs(dataItem.From.x - dataItem.SourceBonusPos.x);
+            float waveDelay = distance * 1.12f;
+            float randomOffset = UnityEngine.Random.Range(0f, 3.16f);
+            seq.Chain(Tween.Delay(waveDelay + randomOffset));
+        }
+
+        seq.ChainCallback(() =>
+        {
+            Debug.Log("колбек на дестрой тригернулся");
+            var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
+            GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.Destroy);
+        });
 
         seq.Chain(Tween.Scale(target.transform, new Vector3(1.2f, 1.2f, 1f), 0.05f, Ease.OutQuad));
         seq.Chain(Tween.Scale(target.transform, Vector3.zero, 0.15f, Ease.InBack).OnComplete(() =>

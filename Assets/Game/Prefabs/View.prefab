@@ -47,6 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AnimationManager
   View: {fileID: 9096149901161676017}
   Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
+  BonusMatchRules: {fileID: 11400000, guid: 40a2388486a6756409eedc8363a906ba, type: 2}
 --- !u!114 &9096149901161676017
 MonoBehaviour:
   m_ObjectHideFlags: 0

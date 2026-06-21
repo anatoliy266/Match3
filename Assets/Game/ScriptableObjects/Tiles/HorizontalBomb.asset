@@ -12,5 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6474dd02d58973f4a95b77fa72e3cafe, type: 3}
   m_Name: HorizontalBomb
   m_EditorClassIdentifier: Assembly-CSharp::TileDataBase
-  Color: {r: 0, g: 1, b: 0.9743139, a: 1}
-  Sprite: {fileID: 0}
+  Color: {r: 0, g: 0.97070134, b: 1, a: 1}
+  HighlightColor: {r: 1, g: 1, b: 1, a: 0}
+  ShadowColor: {r: 0, g: 0, b: 0, a: 1}
+  Sprite: {fileID: -8755383493345565106, guid: 0106a354885e8984fba08900bd2290d8, type: 3}
