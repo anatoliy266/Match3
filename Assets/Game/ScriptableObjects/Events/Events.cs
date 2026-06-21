@@ -10,7 +10,13 @@ public enum GameEvent
     ShaderImpact,
     ShaderDestroyTile,
     FieldSettled,
-    Final
+    Final,
+    StepIncreased,
+    AnimationSync,
+    PlaySwapSFX,
+    PlayDestroyRegularSFX,
+    PlaySFX,
+    SettingChanged
 }
 
 
@@ -26,8 +32,42 @@ public class Events : ScriptableObject
 
     [SerializeField] private List<EventConfig> events = new List<EventConfig>();
 
+    private Dictionary<GameEvent, string> _eventLookup;
+
+    private void OnEnable()
+    {
+        BuildLookup();
+    }
+
+    private void BuildLookup()
+    {
+        _eventLookup = new Dictionary<GameEvent, string>();
+
+        if (events == null) return;
+
+        for (int i = 0; i < events.Count; i++)
+        {
+            EventConfig config = events[i];
+
+            if (string.IsNullOrEmpty(config.busName)) continue;
+
+            if (!_eventLookup.ContainsKey(config.eventID))
+            {
+                _eventLookup.Add(config.eventID, config.busName);
+            }
+        }
+    }
+
     public string GetBusName(GameEvent id)
     {
-        return events.Find(e => e.eventID == id).busName;
+        if (_eventLookup == null) return string.Empty;
+
+        if (_eventLookup.TryGetValue(id, out var busName))
+        {
+            return busName;
+        }
+
+        return string.Empty;
     }
 }
+

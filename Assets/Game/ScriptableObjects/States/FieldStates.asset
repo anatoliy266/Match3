@@ -21,6 +21,8 @@ MonoBehaviour:
     Transitions:
     - Event: 1
       State: {fileID: 11400000, guid: 8510fa3ed62af604195d82930e67c63a, type: 2}
+    - Event: 16
+      State: {fileID: 11400000, guid: aa5913b0f799a86458e1a7fe83e4bd42, type: 2}
   - State: {fileID: 11400000, guid: 8510fa3ed62af604195d82930e67c63a, type: 2}
     Transitions:
     - Event: 4
@@ -57,3 +59,9 @@ MonoBehaviour:
     Transitions:
     - Event: 15
       State: {fileID: 11400000, guid: 8cb75adb0880abb4b8acdf85207c1534, type: 2}
+  - State: {fileID: 11400000, guid: aa5913b0f799a86458e1a7fe83e4bd42, type: 2}
+    Transitions:
+    - Event: 8
+      State: {fileID: 11400000, guid: fe02237dbc73412458fa5be4dffe2ee7, type: 2}
+    - Event: 14
+      State: {fileID: 11400000, guid: c8fa3a892eef9bd43afbaedf108eef12, type: 2}

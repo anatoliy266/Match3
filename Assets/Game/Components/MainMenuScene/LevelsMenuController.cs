@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class LevelsMenuController : MonoBehaviour
 {
@@ -8,10 +9,8 @@ public class LevelsMenuController : MonoBehaviour
     [SerializeField][Req] Levels Levels;
     [SerializeField][Req] SessionData SessionData;
 
+    [SerializeField][Req] private VerticalLayoutGroup contentLayout;
 
-    //[SerializeField][Req] private List<LevelSettings> allLevels;
-
-    //private Dictionary<int, LevelSettings> levelMenuItems = new Dictionary<int, LevelSettings>();
     private List<LevelItem> _levelItems = new List<LevelItem>();
 
     public void Initialize()
@@ -19,7 +18,9 @@ public class LevelsMenuController : MonoBehaviour
         if (Levels == null) return;
         for (var i = 1; i <= Levels.LevelsCount; i++)
         {
-            var levelItem = Instantiate(levelMenuItem, this.transform);
+            var parent = contentLayout != null ? contentLayout.transform : this.transform;
+
+            var levelItem = Instantiate(levelMenuItem, parent);
             levelItem.Fill(Levels.GetLevelSettings(i), this);
             _levelItems.Add(levelItem);
         }

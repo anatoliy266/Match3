@@ -36,7 +36,7 @@ public class RemoveState : GameState
 
         var snapshot = machine.Field.ToSnapshot();
 
-        var name = Events.GetBusName(GameEvent.AnimationEnd);
+        var name = Events.GetBusName(GameEvent.Animation);
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
 
         var shaderBusName = Events.GetBusName(GameEvent.ShaderImpact);

@@ -17,13 +17,15 @@ public class LevelController : MonoBehaviour
 {
     [Header("Prefabs")]
     [SerializeField][Req] private Field fieldPrefab;
+    [SerializeField][Req] private FiniteStateMachine fsm;
     [SerializeField][Req] private FieldView fieldViewPrefab;
+
 
     [Header("UI Goals System")]
     [SerializeField][Req] private TaskListController taskList;
+    [SerializeField][Req] private StepsController steps;
 
     [SerializeField][Req] private SpriteRenderer backgroundRenderer;
-    [SerializeField][Req] private SpriteRenderer woolRenderer;
     [SerializeField][Req] private SpriteRenderer cellingRenderer;
 
     [SerializeField][Req] private TileTypeData tileTypeData;
@@ -38,6 +40,7 @@ public class LevelController : MonoBehaviour
     private Field _currentFieldInstance;
     private FieldView _currentFieldViewInstance;
     private LevelSettings _currentLevelSettings;
+    private WinPanelController _winPanel;
     private bool _isLevelEnded;
 
     private void OnEnable()
@@ -45,12 +48,20 @@ public class LevelController : MonoBehaviour
         // Подписываемся на сигнал покоя поля
         var fieldSettledEvent = Events.GetBusName(GameEvent.FieldSettled);
         GameplayEventBus<int>.Register(fieldSettledEvent, OnFieldSettled);
+
+        var finalEvent = Events.GetBusName(GameEvent.Final);
+        GameplayEventBus<bool>.Register(finalEvent, OnFinished);
     }
+
+    
 
     private void OnDisable()
     {
         var fieldSettledEvent = Events.GetBusName(GameEvent.FieldSettled);
         GameplayEventBus<int>.Unregister(fieldSettledEvent, OnFieldSettled);
+
+        var finalEvent = Events.GetBusName(GameEvent.Final);
+        GameplayEventBus<bool>.Unregister(finalEvent, OnFinished);
     }
 
     private void Start()
@@ -61,22 +72,11 @@ public class LevelController : MonoBehaviour
 
     public void StartLevel(LevelSettings levelSettings)
     {
+        _isLevelEnded = false;
+
         _currentLevelSettings = levelSettings;
 
         backgroundRenderer.sprite = _currentLevelSettings.backgroundSprite;
-
-        if (woolRenderer != null)
-        {
-            var woolCtrl = woolRenderer.GetComponent<WoolController>();
-            if (woolCtrl != null)
-            {
-                woolCtrl.InitializeWool(_currentLevelSettings);
-            }
-            else
-            {
-                Debug.LogError("[LevelController] Компонент WoolController не найден на объекте woolRenderer!");
-            }
-        }
 
         if (cellingRenderer != null)
         {
@@ -88,6 +88,10 @@ public class LevelController : MonoBehaviour
         {
             Destroy(_currentFieldInstance.gameObject);
         }
+        if (_currentFieldViewInstance != null)
+        {
+            Destroy(_currentFieldViewInstance.gameObject);
+        }
 
         _currentFieldInstance = Instantiate(fieldPrefab, Vector3.zero, Quaternion.identity, this.transform);
         _currentFieldInstance.Initialize(_currentLevelSettings);
@@ -96,6 +100,10 @@ public class LevelController : MonoBehaviour
         _currentFieldViewInstance.Initialize(_currentLevelSettings);
 
         taskList.Initialize(_currentLevelSettings);
+        steps.Initialize(_currentLevelSettings);
+
+        fsm.Init(_currentLevelSettings, _currentFieldInstance);
+        fsm.Run();
 
         Debug.Log($"[LevelManager] Уровень {levelSettings.levelNumber} успешно запущен!");
     }
@@ -107,11 +115,12 @@ public class LevelController : MonoBehaviour
         bool isTargetReached = _isLevelEnded
             || step > _currentLevelSettings.Steps
             || taskList.AreAllGoalsCompleted();
+        if (isTargetReached) Debug.Log("[LevelController] цели достигнуты");
 
         GameplayEventBus<bool>.Trigger(name, isTargetReached);
     }
 
-    private void EndLevel(bool isWin)
+    private void OnFinished(bool isWin)
     {
         _isLevelEnded = true;
 
@@ -121,24 +130,21 @@ public class LevelController : MonoBehaviour
 
             //показать картинку с бекграунда как финал уровня на весь экран
             //и какие нибудь звездочки типа рарность картинки.
-            var spawnedUI = Instantiate(WinPanel, Canvas.transform);
-            //var spawedUIController = spawnedUI.GetComponent<WinPanelController>();
-            spawnedUI.Init(this, _currentLevelSettings.backgroundSprite);
-            spawnedUI.transform.SetAsLastSibling(); 
-
-            //сформировать снапшот у которого заменить бонусами рандомные ячейки в зависимости от оставшихся ходов
-
-            // 
+            if (_winPanel == null)
+            {
+                _winPanel = Instantiate(WinPanel, Canvas.transform);
+                _winPanel.transform.SetAsLastSibling();
+            } else
+            {
+                _winPanel.gameObject.SetActive(true);
+            }
+            _winPanel.Init(this, _currentLevelSettings.backgroundSprite);
         }
         else
         {
             Debug.Log("[LevelController] ПОРАЖЕНИЕ!");
             // порказывать какойто элемент типа "проиграл, попробуй еще раз"
         }
-
-        
-
-
     }
 }
 

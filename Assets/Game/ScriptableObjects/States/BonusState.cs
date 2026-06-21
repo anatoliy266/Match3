@@ -25,11 +25,20 @@ public class BonusState : GameState
         visited.Clear();
 
         var _bonusQueue = new Queue<Guid>();
-        _bonusQueue.Enqueue(machine.Blackboard.SourceDest.SourceId);
-        _bonusQueue.Enqueue(machine.Blackboard.SourceDest.DestId);
+        //_bonusQueue.Enqueue(machine.Blackboard.SourceDest.SourceId);
+        //_bonusQueue.Enqueue(machine.Blackboard.SourceDest.DestId);
 
-        visited.Add(machine.Blackboard.SourceDest.SourceId);
-        visited.Add(machine.Blackboard.SourceDest.DestId);
+        //visited.Add(machine.Blackboard.SourceDest.SourceId);
+        //visited.Add(machine.Blackboard.SourceDest.DestId);
+        var inputBonuses = machine.Blackboard.BonusesToActivate;
+
+        for (int i = 0; i < inputBonuses.Count; i++)
+        {
+            var id = inputBonuses[i];
+
+            _bonusQueue.Enqueue(id);
+            visited.Add(id);
+        }
 
 
         while (_bonusQueue.Count > 0)
@@ -41,7 +50,7 @@ public class BonusState : GameState
 
 
 
-            machine.MatchEvaluator.GetBonusGroupAt(snapshot, pos, MatchRules, matches);
+            machine.MatchEvaluator.AddBonusGroup(snapshot, pos, MatchRules, matches);
 
             for (var i = startCount; i < matches.Count; i++)
             {

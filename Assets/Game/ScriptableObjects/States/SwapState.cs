@@ -30,14 +30,22 @@ public class SwapState : GameState
             machine.Field.SetTileAt(sourcePos, dest);
             machine.Field.SetTileAt(destPos, source);
 
+            var swapsfxname = Events.GetBusName(GameEvent.PlaySFX);
+            GameplayEventBus<GameSound>.Trigger(swapsfxname, GameSound.Swap);
+
             DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 
             var snapshot = machine.Field.ToSnapshot();
-            var name = Events.GetBusName(GameEvent.AnimationEnd);
-            GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+            var syncname = Events.GetBusName(GameEvent.AnimationSync);
+            GameplayEventBus<LogicalTile?[,]>.Trigger(syncname, snapshot);
+
 
             if (hasBonus)
             {
+                machine.Blackboard.BonusesToActivate.Clear();
+                machine.Blackboard.BonusesToActivate.Add(sourceId);
+                machine.Blackboard.BonusesToActivate.Add(destId);
                 machine.Switch(StateEvent.SwapBonus); 
             }
             else
@@ -49,8 +57,9 @@ public class SwapState : GameState
             DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 
             var snapshot = machine.Field.ToSnapshot();
-            var name = Events.GetBusName(GameEvent.AnimationEnd);
+            var name = Events.GetBusName(GameEvent.Animation);
             GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
 
             machine.Switch(StateEvent.SwapBack);
         }

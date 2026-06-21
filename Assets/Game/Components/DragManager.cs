@@ -94,10 +94,10 @@ public class DragManager : MonoBehaviour
             DestId = Dest.Id
         };
 
-        //Source.transform.position = DestStartPos;
-        //Dest.transform.position = SourceStartPos;
-        Source.transform.position = SourceStartPos;
-        Dest.transform.position = DestStartPos;
+        Source.transform.position = DestStartPos;
+        Dest.transform.position = SourceStartPos;
+        //Source.transform.position = SourceStartPos;
+        //Dest.transform.position = DestStartPos;
 
         Source.gameObject.layer = 0;
         Dest.gameObject.layer = 0;

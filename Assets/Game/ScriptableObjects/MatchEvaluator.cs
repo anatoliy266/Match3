@@ -16,7 +16,7 @@ public struct MatchInfo
 //проверяет поле на наличие совпадений по правилам
 public class MatchEvaluator
 {
-    [ThreadStatic] private static Queue<Vector2Int> _queue = new Queue<Vector2Int>();
+    private static Queue<Vector2Int> _queue = new Queue<Vector2Int>();
 
     //идет по полю и проверяет плитки на совпадение по цвету через бфс, возвращает список групп
     public void Evaluate(LogicalTile?[,] snapshot, MatchRules rules, List<MatchInfo> matches)
@@ -59,8 +59,29 @@ public class MatchEvaluator
         ArrayPool<bool>.Shared.Return(visited);
     }
 
+    public void EvaluateTile(LogicalTile?[,] snapshot, Vector2Int pos, TileKind kind, MatchRules rules, List<Guid> group)
+    {
+        var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
-    public void GetBonusGroupAt(LogicalTile?[,] snapshot, Vector2Int position, MatchRules rules, List<MatchInfo> groups)
+        var visited = ArrayPool<bool>.Shared.Rent(r * c);
+        Array.Clear(visited, 0, r * c);
+
+        var tileRules = rules.GetRules(kind);
+
+        var data = new AlgoritmContext
+        {
+            Snapshot = snapshot,
+            Queue = _queue,
+            Visited = visited,
+            Rules = tileRules,
+        };
+        snapshot[pos.x, pos.y] = new LogicalTile { Id = new Guid(), Type = kind};
+        BFS.Run(pos, data, group);
+        ArrayPool<bool>.Shared.Return(visited);
+    }
+
+
+    public void AddBonusGroup(LogicalTile?[,] snapshot, Vector2Int position, MatchRules rules, List<MatchInfo> groups)
     {
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 

@@ -34,7 +34,7 @@ public class FieldBlackboard
 
     public int MaxSteps {  get; internal set; }
 
-    public List<Vector2Int> FinalBonuses { get; set; } = new List<Vector2Int>();
+    public List<Guid> BonusesToActivate { get; set; } = new List<Guid>();
 
     // Данные для подсказки игроку
     //public HintInfo CurrentHint { get; set; }

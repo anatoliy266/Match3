@@ -16,37 +16,12 @@ MonoBehaviour:
   Rows: 8
   Columns: 8
   Steps: 15
-  RegiularTilesList: 000000000100000002000000030000000400000005000000
+  RegiularTilesList: 00000000010000000200000005000000
   BonusTilesList: 000000000100000002000000
-  backgroundSprite: {fileID: 944179808672642539, guid: b6282fa3d3a54e64595329e3da83f471, type: 3}
+  backgroundSprite: {fileID: 8750230940053459384, guid: f2fd6eca5611ce647b5ec80000a69dfe, type: 3}
   ropesGoalsList:
   - Kind:
       KindType: 0
       RegularType: 0
-      BonusType: 0
-    count: 10
-  - Kind:
-      KindType: 0
-      RegularType: 1
-      BonusType: 0
-    count: 10
-  - Kind:
-      KindType: 0
-      RegularType: 2
-      BonusType: 0
-    count: 10
-  - Kind:
-      KindType: 0
-      RegularType: 3
-      BonusType: 0
-    count: 10
-  - Kind:
-      KindType: 0
-      RegularType: 4
-      BonusType: 0
-    count: 10
-  - Kind:
-      KindType: 0
-      RegularType: 5
       BonusType: 0
     count: 10

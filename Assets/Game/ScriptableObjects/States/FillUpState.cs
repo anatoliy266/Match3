@@ -66,7 +66,8 @@ public class FillUpState : GameState
         //заполнение пустых
         var spawns = CollectionPool<List<SpawnInfo>, SpawnInfo>.Get();
         spawns.Clear();
-        machine.SpawnEvaluator.Evaluate(snapshot, SpawnRules, spawns);
+
+        machine.SpawnEvaluator.Evaluate(machine, snapshot, MatchRules, spawns, machine.Blackboard.CascadeIteration);
 
         for (var i = 0; i < spawns.Count; i++)
         {
@@ -83,7 +84,7 @@ public class FillUpState : GameState
         }
         CollectionPool<List<SpawnInfo>, SpawnInfo>.Release(spawns);
 
-        var name = Events.GetBusName(GameEvent.AnimationEnd);
+        var name = Events.GetBusName(GameEvent.Animation);
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
 
         machine.Switch(StateEvent.FillUpTiles);

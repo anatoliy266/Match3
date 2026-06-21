@@ -41,6 +41,15 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Background
+    uniqueID: 3764452429
+    locked: 0
+  - name: GameLayer
+    uniqueID: 2442475233
+    locked: 0
+  - name: UILayer
+    uniqueID: 413653249
+    locked: 0
   m_RenderingLayers:
   - Default
   m_MigratedRenderPipelines: []

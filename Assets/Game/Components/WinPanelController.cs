@@ -20,12 +20,14 @@ public class WinPanelController : MonoBehaviour
 
     public void NextLevel()
     {
+        this.gameObject.SetActive(false);
         sessionData.currentLevelId++;
         _levelController.StartLevel(Levels.GetLevelSettings(sessionData.currentLevelId));
     }
 
     public void Back()
     {
+        this.gameObject.SetActive(false);
         sessionData.currentLevelId++;
         SceneManager.LoadScene("MainMenuScene");
     }

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Level2
   m_EditorClassIdentifier: Assembly-CSharp::LevelSettings
   levelNumber: 2
-  Rows: 10
-  Columns: 10
+  Rows: 9
+  Columns: 12
   Steps: 25
   RegiularTilesList: 000000000100000002000000030000000400000005000000
   BonusTilesList: 000000000100000002000000

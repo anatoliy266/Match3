@@ -10,29 +10,45 @@ public class FiniteStateMachine : MonoBehaviour
     [Req] public GameState State;
     [Req] public Field Field;
 
-    public FieldBlackboard Blackboard {  get; set; }
-    public MatchEvaluator MatchEvaluator { get; set; }
-    public SpawnEvaluator SpawnEvaluator { get; set; }
-    private void Awake()
+    public FieldBlackboard Blackboard;
+    public MatchEvaluator MatchEvaluator;
+    public SpawnEvaluator SpawnEvaluator;
+
+    private GameState _state;
+    //private void Awake()
+    //{
+    //    Field = GetComponent<Field>();
+    //}
+
+    public void Init(LevelSettings settings, Field currentFieldInstance)
     {
-        Field = GetComponent<Field>();
+        _state = State;
+        Field = currentFieldInstance;
         Blackboard = new FieldBlackboard();
         MatchEvaluator = new MatchEvaluator();
         SpawnEvaluator = new SpawnEvaluator();
+        Blackboard.MaxSteps = settings.Steps;
+        Blackboard.Step = 0;
+        Blackboard.CascadeIteration = 0;
+        Blackboard.IsFinalState = false;
     }
 
-    private void Start()
+    public void Run()
     {
-        if (State != null) State.Enter(this);
+        if (_state != null) _state.Enter(this);
     }
+
+    public GameState GetState() => _state;
 
     public void Switch(StateEvent e)
     {
-        var nextState = States.GetTransition(State, e);
+        var nextState = States.GetTransition(_state, e);
+
+        Debug.Log($"переключается из {_state?.GetType().Name ?? "Null"} в {nextState?.GetType().Name ?? "Null"}");
         if (nextState is not null)
         {
-            State = nextState;
-            State.Enter(this);
+            _state = nextState;
+            _state.Enter(this);
         }
     }
 }

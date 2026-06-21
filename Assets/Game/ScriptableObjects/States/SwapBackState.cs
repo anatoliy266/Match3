@@ -30,8 +30,11 @@ public class SwapBackState : GameState
         DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 
         var snapshot = machine.Field.ToSnapshot();
-        var name = Events.GetBusName(GameEvent.AnimationEnd);
+        var name = Events.GetBusName(GameEvent.Animation);
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
+
+        //var swapsfxname = Events.GetBusName(GameEvent.PlaySFX);
+        //GameplayEventBus<GameSound>.Trigger(swapsfxname, GameSound.Swap);
 
         machine.Switch(StateEvent.SwapBack);
     }

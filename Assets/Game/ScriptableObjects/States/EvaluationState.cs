@@ -25,21 +25,19 @@ public class Evaluation : GameState
         //валидатор ищет на поле есть ли группы одинакового цвета > 3 элементов
         // возвращает в руку список списков гуидов элементов по группам
         var snapshot = machine.Field.ToSnapshot();
-        //var groups = new List<MatchInfo>();
+
+        // matches ссылка на блекборд, пишется сразу туда
         machine.MatchEvaluator.Evaluate(snapshot, MatchRules, matches);
 
         //проверка групп на совпадение с бонусом
         var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
         positionsCache.Clear();
+
         machine.Field.ToPositionChache(positionsCache);
 
         var posGroup = CollectionPool<List<Vector2Int>, Vector2Int>.Get();
         posGroup.Clear();
-        //var spawns = CollectionPool<List<SpawnInfo>, SpawnInfo>.Get();
-        //spawns.Clear();
 
-        //var posSource = positionsCache[machine.Blackboard.SourceDest.SourceId];
-        //var posDest = positionsCache[machine.Blackboard.SourceDest.DestId];
         if (!positionsCache.TryGetValue(machine.Blackboard.SourceDest.SourceId, out var posSource)) posSource = new Vector2Int(-1, -1);
         if (!positionsCache.TryGetValue(machine.Blackboard.SourceDest.DestId, out var posDest)) posDest = new Vector2Int(-1, -1);
 
@@ -55,7 +53,7 @@ public class Evaluation : GameState
             var targetSpawnPos = posGroup.Contains(posDest) ? posDest
                                   : posGroup.Contains(posSource) ? posSource
                                   : posGroup[0]; 
-
+            // бонусы - ссылка на блекборд так что пишетсчя сразу туда
             machine.SpawnEvaluator.EvaluateBonusSpawn(SpawnRules, posGroup, targetSpawnPos, bonuses);
         }
 
@@ -66,13 +64,17 @@ public class Evaluation : GameState
 
         if (matches.Count == 0)
         {
+            machine.Blackboard.CascadeIteration = 1;
             machine.Switch(StateEvent.NoMatches);
         } else
         {
             // записывает в блекборд список групп 
             //matches = matches;
             //переъод к удалению
+
+            machine.Blackboard.CascadeIteration++;
             machine.Switch(StateEvent.MatchesFound);
+
         }
 
         

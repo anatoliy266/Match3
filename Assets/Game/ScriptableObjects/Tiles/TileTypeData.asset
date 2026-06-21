@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8410327926aaa741ab48475dc8f329c, type: 3}
+  m_Name: TileTypeData
+  m_EditorClassIdentifier: Assembly-CSharp::TileTypeData
+  RegularTiles:
+  - tileType: 0
+    data: {fileID: 11400000, guid: 6f411e3e5bf71cc44a66aca6651346e6, type: 2}
+  - tileType: 1
+    data: {fileID: 11400000, guid: f7ede754acdf7ce4e89c8b9aab5bde67, type: 2}
+  - tileType: 2
+    data: {fileID: 11400000, guid: 20392ab978f90ee4b9128354c33cf19b, type: 2}
+  - tileType: 5
+    data: {fileID: 11400000, guid: ba824a7a3db22af449410dee9ebd6763, type: 2}
+  - tileType: 3
+    data: {fileID: 11400000, guid: ae2e66de246d9b848b79098b11b961db, type: 2}
+  - tileType: 4
+    data: {fileID: 11400000, guid: b6f1a49c6c55eae4e90da9a93a5ae84b, type: 2}
+  BonusTiles:
+  - tileType: 0
+    data: {fileID: 11400000, guid: e7fd892ccf9b9fa4ca8c4dcf71e1eea5, type: 2}
+  - tileType: 1
+    data: {fileID: 11400000, guid: 2c555a4710f297844bab81729e0607b8, type: 2}
+  - tileType: 2
+    data: {fileID: 11400000, guid: acb87215003830f4dbacfb924e3fa6ca, type: 2}

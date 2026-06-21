@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.Timeline;
+using static UnityEditor.PlayerSettings;
+using static UnityEditor.Progress;
 
 public enum AnimateAction
 {
@@ -36,7 +38,7 @@ public class FieldViewController : MonoBehaviour
     private bool _isPlaying;
 
     private LogicalTile?[,] _prevSnapshot;
-    
+
 
     public void Initialize(LogicalTile?[,] snapshot)
     {
@@ -44,11 +46,11 @@ public class FieldViewController : MonoBehaviour
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
         for (var i = 0; i < r; i++)
         {
-            for (var  j = 0; j < c; j++)
+            for (var j = 0; j < c; j++)
             {
                 if (snapshot[i, j] is null) continue;
-                var tile = snapshot[i,j].Value;
-                View.CreateVisualTile(tile.Id, tile.Type, new Vector2Int(i,j), new Vector2Int(i, j));
+                var tile = snapshot[i, j].Value;
+                View.CreateVisualTile(tile.Id, tile.Type, new Vector2Int(i, j), new Vector2Int(i, j));
             }
         }
     }
@@ -56,15 +58,26 @@ public class FieldViewController : MonoBehaviour
 
     private void OnEnable()
     {
-        var name = Events.GetBusName(GameEvent.AnimationEnd);
+        var name = Events.GetBusName(GameEvent.Animation);
         GameplayEventBus<LogicalTile?[,]>.Register(name, OnPackageReceived);
+
+        var syncname = Events.GetBusName(GameEvent.AnimationSync);
+        GameplayEventBus<LogicalTile?[,]>.Register(syncname, SyncSnapshot);
     }
 
     private void OnDisable()
     {
-        
-        var name = Events.GetBusName(GameEvent.AnimationEnd);
+
+        var name = Events.GetBusName(GameEvent.Animation);
         GameplayEventBus<LogicalTile?[,]>.Unregister(name, OnPackageReceived);
+
+        var syncname = Events.GetBusName(GameEvent.AnimationSync);
+        GameplayEventBus<LogicalTile?[,]>.Unregister(syncname, SyncSnapshot);
+    }
+
+    private void SyncSnapshot(LogicalTile?[,] obj)
+    {
+        _prevSnapshot = obj;
     }
 
     private void OnPackageReceived(LogicalTile?[,] snapshot)
@@ -84,6 +97,9 @@ public class FieldViewController : MonoBehaviour
         var dictCopy = UnityEngine.Pool.DictionaryPool<Guid, Vector2Int>.Get();
         dictCopy.Clear();
 
+
+
+
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
         for (var i = 0; i < r; i++)
@@ -94,7 +110,7 @@ public class FieldViewController : MonoBehaviour
                 if (item is null) continue;
                 var pos = new Vector2Int(i, j);
                 dict[item.Value.Id] = new Vector2Int(i, j);
-                dictCopy[item.Value.Id] = new Vector2Int(i, j); 
+                dictCopy[item.Value.Id] = new Vector2Int(i, j);
             }
         }
 
@@ -105,15 +121,25 @@ public class FieldViewController : MonoBehaviour
                 var item = snapshot[i, j];
                 if (item is null) continue;
                 var pos = new Vector2Int(i, j);
+
+                //float randomOffset = UnityEngine.Random.Range(0f, 0.04f);
+                //float waveDelay = (pos.x + pos.y) * 0.03f;
+                float waveDelay = (pos.x * 0.12f) + (pos.y * 0.12f);
+
+                // Добавляем более сильный рандом, чтобы разбить синхронность даже внутри одной линии
+                float randomOffset = UnityEngine.Random.Range(0f, 0.16f);
+
                 if (dict.TryGetValue(item.Value.Id, out var p))
                 {
                     //если позиция не поменялась - скип
                     if (p == pos)
                     {
-                        dictCopy.Remove(item.Value.Id); 
+                        dictCopy.Remove(item.Value.Id);
                     }
                     else
                     {
+
+
                         //если поменялась создаем обьект
                         var anim = new AnimationData
                         {
@@ -122,11 +148,13 @@ public class FieldViewController : MonoBehaviour
                             From = p,
                             To = pos,
                             Action = AnimateAction.Move,
-                            Delay = pos.x * 0.05f
+                            //Delay = pos.x * 0.05f
+                            //Delay = pos.x * 0.08f + pos.y * 0.02f
+                            Delay = waveDelay + randomOffset
                         };
                         animData.Add(anim);
 
-                        dictCopy.Remove(item.Value.Id); 
+                        dictCopy.Remove(item.Value.Id);
                     }
                 }
                 else
@@ -143,7 +171,9 @@ public class FieldViewController : MonoBehaviour
                         From = from,
                         To = pos,
                         Action = AnimateAction.Spawn,
-                        Delay = pos.x * 0.05f
+                        //Delay = pos.x * 0.05f
+                        //Delay = pos.x * 0.08f + pos.y * 0.02f
+                        Delay = waveDelay + randomOffset
                     };
                     animData.Add(data);
                 }
@@ -185,80 +215,128 @@ public class FieldViewController : MonoBehaviour
         var snapshot = _queue.Dequeue();
         var sequence = Sequence.Create();
         var animData = ListPool<AnimationData>.Get();
-        //animData.Clear();
+
         MatchField(snapshot, animData);
 
-        foreach (var item in animData)
+        for (int i = 0; i < animData.Count; i++)
         {
-            Tween tween = Tween.Delay(1.0f); 
+            var item = animData[i];
 
+            Sequence tileSeq;
             switch (item.Action)
             {
-                case AnimateAction.Spawn:
-                    tween = Spawn(item);
-                    break;
-
-                case AnimateAction.Move:
-                    tween = Move(item);
-                    break;
-
-                case AnimateAction.Destroy:
-                    tween = Destroy(item);
-                    break;
+                case AnimateAction.Spawn: tileSeq = GetSpawnSequence(item); break;
+                case AnimateAction.Move: tileSeq = GetMoveSequence(item); break;
+                case AnimateAction.Destroy: tileSeq = GetDestroySequence(item); break;
+                default: tileSeq = Sequence.Create(); break;
             }
-            sequence.Group(tween);
+
+            int rowIndex = Mathf.RoundToInt(item.To.x);
+
+            float rowDelay = rowIndex * 0.05f;
+
+            var tileTimeline = Sequence.Create();
+
+            tileTimeline.Chain(Tween.Delay(rowDelay));
+
+            tileTimeline.Chain(tileSeq);
+
+            sequence.Group(tileTimeline);
         }
+
         ListPool<AnimationData>.Release(animData);
-        sequence.OnComplete(() => {
+
+        sequence.OnComplete(() =>
+        {
             _prevSnapshot = snapshot;
 
             var name = Events.GetBusName(GameEvent.ShaderDestroyTile);
             GameplayEventBus<bool>.Trigger(name, true);
-            
+
             PlayNext();
         });
     }
 
-    private Tween Move(AnimationData dataItem)
+
+    private const float StretchY = 1.15f;
+    private const float SquashY = 0.85f;
+
+    private Sequence GetMoveSequence(AnimationData dataItem)
     {
-        //return Tween.Position(View.GetVisualTileAt(dataItem.Id).transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f);
         var target = View.GetVisualTileAt(dataItem.Id);
+        if (target == null) return Sequence.Create();
 
-        // Защита: если плитка уже уничтожена на каскаде, просто пропускаем
-        if (target == null)
-        {
-            return Tween.Delay(0f);
-        }
+        var startPos = View.GetWorldPos(dataItem.From);
+        var endPos = View.GetWorldPos(dataItem.To);
 
-        return Tween.Position(target.transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f, startDelay: dataItem.Delay);
+        var seq = Sequence.Create();
+        float duration = 0.35f + UnityEngine.Random.Range(0f, 0.2f);
+
+
+        seq.Chain(Tween.Scale(target.transform, new Vector3(0.9f, 1.1f, 1f), duration, Ease.OutQuad));
+        seq.Group(Tween.Position(target.transform, startPos, endPos, duration, Ease.OutQuad));
+
+        float tileHeight = 1f;
+
+        Vector3 squashedPos = endPos + new Vector3(0f, -(tileHeight * (1f - 0.85f) / 2f), 0f);
+
+        // Удар о землю (сплющивание)
+        seq.Chain(Tween.Scale(target.transform, new Vector3(1.15f, 0.85f, 1f), 0.15f, Ease.Linear));
+        seq.Group(Tween.Position(target.transform, endPos, squashedPos, 0.15f, Ease.Linear));
+
+        // Желейный отскок
+        seq.Chain(Tween.Scale(target.transform, Vector3.one, 0.15f, Ease.Linear));
+        seq.Group(Tween.Position(target.transform, squashedPos, endPos, 0.15f, Ease.Linear));
+
+
+        return seq;
     }
 
-    private Tween Spawn(AnimationData dataItem)
+    private Sequence GetSpawnSequence(AnimationData dataItem)
     {
         var target = View.CreateVisualTile(dataItem.Id, dataItem.Kind, dataItem.From, dataItem.To);
+
         if (dataItem.From == dataItem.To)
         {
-            return Tween.Scale(target.transform, 0.0f, 1.0f, 1.0f, startDelay: dataItem.Delay);
+            var seq = Sequence.Create();
+
+            seq.Chain(Tween.Scale(target.transform, Vector3.zero, new Vector3(1.1f, 1.1f, 1f), 0.1f, Ease.OutBack));
+            seq.Chain(Tween.Scale(target.transform, Vector3.one, 0.15f, Ease.Linear));
+            return seq;
         }
         else
         {
-            return Tween.Position(target.transform, View.GetWorldPos(dataItem.From), View.GetWorldPos(dataItem.To), 1.0f, startDelay: dataItem.Delay);
+            return GetMoveSequence(dataItem);
         }
-
     }
 
-    private Tween Destroy(AnimationData dataItem)
+    private Sequence GetDestroySequence(AnimationData dataItem)
     {
         var target = View.GetVisualTileAt(dataItem.Id);
+        if (target == null) return Sequence.Create();
 
-        if (target == null)
+        var seq = Sequence.Create();
+
+        if (dataItem.Kind.KindType == TileKindType.Regular)
         {
-            return Tween.Delay(0f);
+            seq.ChainCallback(() =>
+            {
+                Debug.Log("колбек на дестрой тригернулся");
+                var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
+                GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.Destroy);
+            });
+        } else
+        {
+            /// для бонусов
         }
+        
 
-        return Tween.Scale(target.transform, 1.0f, 0.0f, 1.0f, startDelay: dataItem.Delay).OnComplete(() =>
+        seq.Chain(Tween.Scale(target.transform, new Vector3(1.2f, 1.2f, 1f), 0.05f, Ease.OutQuad));
+        seq.Chain(Tween.Scale(target.transform, Vector3.zero, 0.15f, Ease.InBack).OnComplete(() =>
         {
             View.ClearVisualTile(dataItem.Id);
-        });
+        }));
+
+        return seq;
     }
 }

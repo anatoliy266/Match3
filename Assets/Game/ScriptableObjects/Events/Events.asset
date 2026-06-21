@@ -27,3 +27,13 @@ MonoBehaviour:
     busName: FieldSettled
   - eventID: 2
     busName: AnimationEnd
+  - eventID: 7
+    busName: Final
+  - eventID: 8
+    busName: StepIncreased
+  - eventID: 9
+    busName: AnimationSync
+  - eventID: 12
+    busName: PlaySFX
+  - eventID: 13
+    busName: SettingChanged

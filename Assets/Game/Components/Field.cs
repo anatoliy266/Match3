@@ -94,9 +94,5 @@ public class Field : MonoBehaviour
     public void ClearTileAt(Vector2Int pos) => _logicalTiles[pos.x, pos.y] = null;
 
     public Guid GenerateUniqueId() => Guid.NewGuid();
-
-    public Vector3 GetWorldPos(int row, int col) => new Vector3(col - (_cols - 1) / 2f, row - (_rows - 1) / 2f, 0);
-
-    public Vector3 GetWorldPos(Vector2Int v) => new Vector3(v.y - (_cols - 1) / 2f, v.x - (_rows - 1) / 2f, 0);
 }
 

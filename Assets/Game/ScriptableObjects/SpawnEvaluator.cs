@@ -1,7 +1,7 @@
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -16,25 +16,51 @@ public class SpawnEvaluator
 {
     //выбор обычной фишки
     //надо както предиктивно считать какой тип выбрать чтобы не было бесконечных совпадений и доска "усложнялась" после каждой итерации
-    public void Evaluate(LogicalTile?[,] snapshot, SpawnRules rules, List<SpawnInfo> spawns)
+    public void Evaluate(FiniteStateMachine machine, LogicalTile?[,] snapshot, MatchRules rules, List<SpawnInfo> spawns, int difficultModified)
     {
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
+
+        var values = System.Enum.GetValues(typeof(RegularType));
+
         for (var i = 0; i < r; i++)
         {
             for (var j = 0; j < c; j++)
             {
                 if (snapshot[i, j] is not null) continue;
 
-                // todo: както по умному выбирает тип фишки для спавна по коммон правилу спавна
-                // в коммон правиле - что должно быть?
-                var values = System.Enum.GetValues(typeof(RegularType));
-                var type = (RegularType)values.GetValue(UnityEngine.Random.Range(0, values.Length));
+                var group = ListPool<Guid>.Get();
+
+                var totalWeight = 0.0f;
+                var choosen = 0;
+
+                for (var val = 0; val < values.Length; val++)
+                {
+                    var type = (RegularType)val;
+                    group.Clear();
+
+                    machine.MatchEvaluator.EvaluateTile(snapshot, new Vector2Int(i, j), TileKind.Regular(type), rules, group);
+
+                    var currentweight = group.Count > 2 ? 1.0f / (1.0f + difficultModified) : 1.0f;
+                    totalWeight += currentweight;
+
+                    if (UnityEngine.Random.Range(0, totalWeight) <= currentweight) choosen = val; 
+                }
+
+                ListPool<Guid>.Release(group);
+
+                var finalType = (RegularType)choosen;
 
                 var spawn = new SpawnInfo
                 {
-                    Type = TileKind.Regular(type),
+                    Type = TileKind.Regular(finalType),
                     Position = new Vector2Int(i, j)
                 };
+                snapshot[i, j] = new LogicalTile
+                {
+                    Id = Guid.NewGuid(),
+                    Type = TileKind.Regular(finalType)
+                };
+
                 spawns.Add(spawn);
             }
         }
@@ -58,6 +84,5 @@ public class SpawnEvaluator
                 spawns.Add(spawnInfo);
             }
         }
-
     }
 }

@@ -22,15 +22,8 @@ public class FieldView : MonoBehaviour
     {
         _rows = data.Rows;
         _cols = data.Columns;
-        //_visualTiles = new Tile[_rows * _cols];
         _visualTiles = new Dictionary<Guid, Tile>();
-        //_pool = new ObjectPool<Tile>(
-        //    () => Instantiate(Tile),
-        //    (tile) => tile.gameObject.SetActive(true),
-        //    (tile) => tile.gameObject.SetActive(false),
-        //    (tile) => Destroy(tile.gameObject),
-        //    true, 100, 1000
-        //);
+
         _pool = new ObjectPool<Tile>(
             // Передаем transform текущего FieldView в качестве родителя
             () => Instantiate(Tile, this.transform),
@@ -42,13 +35,8 @@ public class FieldView : MonoBehaviour
     }
 
 
-    public Tile? GetVisualTileAt(Guid id)
+    public Tile GetVisualTileAt(Guid id)
     {
-        //for (var i = 0; i < _visualTiles.Length; i++)
-        //{
-        //    if (_visualTiles[i] is not null && _visualTiles[i].Id == id) return _visualTiles[i];
-        //}
-        //return null;
         if (_visualTiles.TryGetValue(id, out var tile)) return tile;
         return null;
     }
@@ -57,9 +45,8 @@ public class FieldView : MonoBehaviour
     {
         var tile = _pool.Get();
         tile.Id = id;
-        tile.SetType(type);
+        tile.SetData(type);
         tile.transform.position = GetWorldPos(from);
-        //_visualTiles[to.x * _cols + to.y] = tile;
         tile.transform.localScale = Tile.transform.localScale;
         _visualTiles[id] = tile;
         return tile;
@@ -69,6 +56,7 @@ public class FieldView : MonoBehaviour
     {
         if (_visualTiles.TryGetValue(id, out var tile))
         {
+            tile.CleanData();
             _pool.Release(tile);
             _visualTiles.Remove(id);
         }

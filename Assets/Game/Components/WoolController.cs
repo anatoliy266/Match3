@@ -62,7 +62,7 @@ public class WoolController : MonoBehaviour
         for (var i = 0; i < destroyedTiles.Count; i++)
         {
             var type = destroyedTiles[i];
-            var color = tileTypeData.GetColor(type);
+            var tiledata = tileTypeData.GetData(type);
 
             int chosenIndex = -1;
             int candidateCount = 0;
@@ -74,7 +74,7 @@ public class WoolController : MonoBehaviour
                 Color ropeColor = new Color(pixel.g, pixel.b, pixel.a);
                 float currentProgress = pixel.r;
 
-                if (Vector4.Distance(ropeColor, color) < 0.1f && currentProgress < 0.05f)
+                if (Vector4.Distance(ropeColor, tiledata.Color) < 0.1f && currentProgress < 0.05f)
                 {
                     candidateCount++;
                     if (UnityEngine.Random.Range(0, candidateCount) == 0)
@@ -154,7 +154,7 @@ public class WoolController : MonoBehaviour
         {
             foreach (var goal in levelData.ropesGoalsList)
             {
-                Color ropeColor = tileTypeData.GetColor(goal.Kind);
+                Color ropeColor = tileTypeData.GetData(goal.Kind).Color;
 
                 for (int k = 0; k < goal.count; k++)
                 {

@@ -18,17 +18,19 @@ public class GoalController : MonoBehaviour
     public bool IsCompleted;
 
     // Метод настройки при старте уровня
-    public void SetupGoal(Color color, int count)
+    public void SetupGoal(TileDataBase data, int count)
     {
-        _color = color;
+        _color = data.Color;
         _remainingCount = count;
         IsCompleted = false;
-        if (GoalImage.material != null)
-        {
-            Material uniqueMaterial = new Material(GoalImage.material);
-            uniqueMaterial.color = color;
-            GoalImage.material = uniqueMaterial;
-        }
+        //if (GoalImage.material != null)
+        //{
+        //    Material uniqueMaterial = new Material(GoalImage.material);
+        //    uniqueMaterial.color = color;
+        //    GoalImage.material = uniqueMaterial;
+        //}
+        GoalImage.sprite = data.Sprite;
+        GoalImage.color = data.Color;
 
         // Настройка текста и галочки
         GoalCountText.text = $"x{count}";

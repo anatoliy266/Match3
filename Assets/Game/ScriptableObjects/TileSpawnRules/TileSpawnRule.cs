@@ -5,13 +5,13 @@ using UnityEngine;
 
 public abstract class TileSpawnRuleBase : ScriptableObject
 {
-    [Tooltip("Эталонная фигура из инспектора")]
+    [Tooltip("фигура")]
     public List<Vector2Int> activeCells;
 
     [Tooltip("Крутить ли фигуру на 90, 180, 270 градусов при проверке")]
     public bool CheckRotations;
 
-    [Tooltip("Какой бонус спавнить, если геометрия совпала")]
+    [Tooltip("тип бонуса")]
     public BonusType BonusType;
 
     // Сигнатура под твой List<Vector2Int> из BFS

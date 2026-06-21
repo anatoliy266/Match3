@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
+using static UnityEngine.InputManagerEntry;
 
 public class TaskListController : MonoBehaviour
 {
@@ -54,17 +55,20 @@ public class TaskListController : MonoBehaviour
 
             GoalController newGoalUI = Instantiate(goalPrefab, this.transform);
 
+            float randomZ = UnityEngine.Random.Range(-10f, 10f);
+            newGoalUI.transform.localRotation = Quaternion.Euler(0f, 0f, randomZ);
+
+            var data = tileTypeData.GetData(kind);
+
             if (kind.KindType == TileKindType.Regular)
             {
-                Color color = tileTypeData.GetColor(kind.RegularType);
-                newGoalUI.SetupGoal(color, goalData.count);
+                newGoalUI.SetupGoal(data, goalData.count);
 
                 _regularGoalsDict[kind.RegularType] = newGoalUI;
             }
             else if (kind.KindType == TileKindType.Bonus)
             {
-                Color color = tileTypeData.GetColor(kind.BonusType);
-                newGoalUI.SetupGoal(color, goalData.count);
+                newGoalUI.SetupGoal(data, goalData.count);
 
                 _bonusGoalsDict[kind.BonusType] = newGoalUI;
             }
@@ -90,13 +94,14 @@ public class TaskListController : MonoBehaviour
         {
             var tile = destroyedTiles[i];
 
+            var tiledata = tileTypeData.GetData(tile);
+
             if (tile.KindType == TileKindType.Regular)
             {
                 // Если такая фишка сейчас есть в целях уровня — обновляем её UI на 1 единицу
                 if (_regularGoalsDict.TryGetValue(tile.RegularType, out var goalUI))
                 {
-                    Color color = tileTypeData.GetColor(tile.RegularType);
-                    goalUI.UpdateGoal(color, 1);
+                    goalUI.UpdateGoal(tiledata.Color, 1);
                 }
             }
             else if (tile.KindType == TileKindType.Bonus)
@@ -104,8 +109,7 @@ public class TaskListController : MonoBehaviour
                 // Если такой бонус есть в целях уровня — обновляем её UI на 1 единицу
                 if (_bonusGoalsDict.TryGetValue(tile.BonusType, out var goalUI))
                 {
-                    Color color = tileTypeData.GetColor(tile.BonusType);
-                    goalUI.UpdateGoal(color, 1);
+                    goalUI.UpdateGoal(tiledata.Color, 1);
                 }
             }
         }

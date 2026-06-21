@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 73d928821c29372409ebb985765e2bd4
+guid: 249bb07cee38f2542b2fb05d258f097a
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -5337799267908828579
-    second: UiBackground_0
+      213: -5416692286827358804
+    second: smocking_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: UiBackground_0
+      name: smocking_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
-        width: 1254
-        height: 1254
+        y: 1
+        width: 1253
+        height: 1253
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d5244f1c8d35ce5b0800000000000000
-      internalID: -5337799267908828579
+      spriteID: ca59e02601b04d4b0800000000000000
+      internalID: -5416692286827358804
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      UiBackground_0: -5337799267908828579
+      smocking_0: -5416692286827358804
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
