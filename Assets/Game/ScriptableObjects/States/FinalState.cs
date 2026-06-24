@@ -138,6 +138,8 @@ public class FinalState : GameState
         var step = Euclide.Run(totalCells);
         var spawnedCount = 0;
 
+        var allBonusTypes = (BonusType[])System.Enum.GetValues(typeof(BonusType));
+
         for (var i = 0; i < totalCells && spawnedCount < stepsLeft; i++)
         {
             var currentIndex = (startIndex + i * step) % totalCells;
@@ -149,7 +151,7 @@ public class FinalState : GameState
                 var newTile = new LogicalTile
                 {
                     Id = machine.Field.GenerateUniqueId(),
-                    Type = TileKind.Bonus(BonusType.Bomb)
+                    Type = TileKind.Bonus(allBonusTypes[UnityEngine.Random.Range(0, allBonusTypes.Length)])
                 };
 
                 machine.Field.SetTileAt(new Vector2Int(x, y), newTile);

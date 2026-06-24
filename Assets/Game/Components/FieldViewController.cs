@@ -420,18 +420,44 @@ public class FieldViewController : MonoBehaviour
 
         if (bonusType == BonusType.HorizontalBomb)
         {
+            seq.ChainCallback(() =>
+            {
+                Debug.Log("колбек на дестрой тригернулся");
+                var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
+                GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyHorizontalBomb);
+            });
+
             float distance = Mathf.Abs(dataItem.From.x - dataItem.SourceBonusPos.x);
-            float waveDelay = distance * 1.12f;
-            float randomOffset = UnityEngine.Random.Range(0f, 3.16f);
+            float waveDelay = distance * 0.12f;
+            float randomOffset = UnityEngine.Random.Range(0f, 0.16f);
             seq.Chain(Tween.Delay(waveDelay + randomOffset));
         }
-
-        seq.ChainCallback(() =>
+        else if (bonusType == BonusType.VerticalBomb)
         {
-            Debug.Log("колбек на дестрой тригернулся");
-            var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
-            GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.Destroy);
-        });
+            seq.ChainCallback(() =>
+            {
+                Debug.Log("колбек на дестрой тригернулся");
+                var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
+                GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyVerticalBomb);
+            });
+            float rowDelay = dataItem.From.x * 0.08f;
+            seq.Chain(Tween.Delay(rowDelay));
+
+            var startPos = View.GetWorldPos(dataItem.From);
+            var fallTarget = View.GetWorldPos(new Vector2Int(-2, dataItem.From.y));
+            float fallDuration = 0.12f + UnityEngine.Random.Range(0f, 0.16f);
+            seq.Chain(Tween.Position(target.transform, startPos, fallTarget, fallDuration, Ease.InQuad));
+        }
+        else if (bonusType == BonusType.Bomb)
+        {
+            seq.ChainCallback(() =>
+            {
+                Debug.Log("колбек на дестрой тригернулся");
+                var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
+                GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyBomb);
+            });
+        }
+        
 
         seq.Chain(Tween.Scale(target.transform, new Vector3(1.2f, 1.2f, 1f), 0.05f, Ease.OutQuad));
         seq.Chain(Tween.Scale(target.transform, Vector3.zero, 0.15f, Ease.InBack).OnComplete(() =>

@@ -44,7 +44,6 @@ public class Tile : MonoBehaviour
 
         _spriteRenderer.SetPropertyBlock(_propBlock);
 
-
         if (data.Sprite != null)
         {
             _spriteRenderer.sprite = data.Sprite;

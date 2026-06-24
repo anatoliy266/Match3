@@ -17,3 +17,9 @@ MonoBehaviour:
     audio: {fileID: 8300000, guid: 9c412ac766381df45a06bedeec89c1a1, type: 3}
   - soundID: 1
     audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
+  - soundID: 3
+    audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
+  - soundID: 4
+    audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
+  - soundID: 5
+    audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}

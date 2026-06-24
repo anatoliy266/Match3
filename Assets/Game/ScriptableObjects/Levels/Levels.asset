@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: Levels
   m_EditorClassIdentifier: Assembly-CSharp::Levels
   levelsMap:
-  - levelId: 1
-    settings: {fileID: 11400000, guid: de2118a2fd079ec419fe7c9294426862, type: 2}
-  - levelId: 2
-    settings: {fileID: 11400000, guid: b2fdc5496172ecd4aa15dc852b3f3078, type: 2}
+  - {fileID: 11400000, guid: de2118a2fd079ec419fe7c9294426862, type: 2}
+  - {fileID: 11400000, guid: b2fdc5496172ecd4aa15dc852b3f3078, type: 2}
+  - {fileID: 11400000, guid: 4c7fe3dd49066f045aa40d23a1f12883, type: 2}

@@ -2,7 +2,7 @@
 using UnityEngine;
 
 public enum RegularType { Red, Green, Blue, Yellow, Orange, Purple }
-public enum BonusType { Bomb, VerticalBomb, HorizontalBomb, ColorBomb }
+public enum BonusType { Bomb, VerticalBomb, HorizontalBomb }
 public enum TileKindType { Regular, Bonus }
 
 [Serializable]

@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.UI;
+using YG;
 
 //Размер и форма поля(например, сетка 8х8, или поле с вырезами / «дырами»).
 //Геометрия ячеек(наличие стен, заблокированных клеток, порталов).
@@ -35,13 +36,23 @@ public class LevelController : MonoBehaviour
     [SerializeField][Req] private WinPanelController WinPanel;
 
     [SerializeField][Req] private Levels Levels;
-    [SerializeField][Req] private SessionData SessionData;
+
+    [SerializeField][Req] private SettingsMenuController settings;
+    [SerializeField][Req] private ConfirmExitMenuController confirm;
+
+    [SerializeField][Req] private SuccessNotificationController sucessNotification;
+
 
     private Field _currentFieldInstance;
     private FieldView _currentFieldViewInstance;
     private LevelSettings _currentLevelSettings;
     private WinPanelController _winPanel;
     private bool _isLevelEnded;
+
+    private SettingsMenuController _settingsMenu;
+    private ConfirmExitMenuController _confirmMenu;
+
+    private SuccessNotificationController _successNotification;
 
     private void OnEnable()
     {
@@ -53,7 +64,7 @@ public class LevelController : MonoBehaviour
         GameplayEventBus<bool>.Register(finalEvent, OnFinished);
     }
 
-    
+
 
     private void OnDisable()
     {
@@ -66,7 +77,7 @@ public class LevelController : MonoBehaviour
 
     private void Start()
     {
-        var level = Levels.GetLevelSettings(SessionData.currentLevelId);
+        var level = Levels.GetLevelSettings(YG2.saves.currentLevelId);
         StartLevel(level);
     }
 
@@ -111,13 +122,34 @@ public class LevelController : MonoBehaviour
     private void OnFieldSettled(int step)
     {
         var name = Events.GetBusName(GameEvent.FieldSettled);
+        if (_currentLevelSettings.Steps < 0)
+        {
+            GameplayEventBus<bool>.Trigger(name, false);
+            return;
+        }
 
         bool isTargetReached = _isLevelEnded
             || step > _currentLevelSettings.Steps
             || taskList.AreAllGoalsCompleted();
-        if (isTargetReached) Debug.Log("[LevelController] цели достигнуты");
 
-        GameplayEventBus<bool>.Trigger(name, isTargetReached);
+        if (_isLevelEnded) GameplayEventBus<bool>.Trigger(name, isTargetReached);
+        else if (isTargetReached)
+        {
+            _isLevelEnded = true;
+            Debug.Log("[LevelController] цели достигнуты");
+
+            if (_successNotification == null)
+            {
+                _successNotification = Instantiate(sucessNotification, Canvas.transform);
+            }
+            _successNotification.Initialize(isTargetReached);
+            _successNotification.Show();
+
+        }
+        else
+        {
+            GameplayEventBus<bool>.Trigger(name, isTargetReached);
+        }
     }
 
     private void OnFinished(bool isWin)
@@ -134,7 +166,8 @@ public class LevelController : MonoBehaviour
             {
                 _winPanel = Instantiate(WinPanel, Canvas.transform);
                 _winPanel.transform.SetAsLastSibling();
-            } else
+            }
+            else
             {
                 _winPanel.gameObject.SetActive(true);
             }
@@ -144,6 +177,30 @@ public class LevelController : MonoBehaviour
         {
             Debug.Log("[LevelController] ПОРАЖЕНИЕ!");
             // порказывать какойто элемент типа "проиграл, попробуй еще раз"
+        }
+    }
+
+    public void OpenConfirmMenu()
+    {
+        if (_confirmMenu == null)
+        {
+            _confirmMenu = Instantiate(confirm, Canvas.transform);
+        }
+        else
+        {
+            _confirmMenu.gameObject.SetActive(true);
+        }
+    }
+
+    public void OpenSettingsMenu()
+    {
+        if (_confirmMenu == null)
+        {
+            _settingsMenu = Instantiate(settings, Canvas.transform);
+        }
+        else
+        {
+            _settingsMenu.gameObject.SetActive(true);
         }
     }
 }

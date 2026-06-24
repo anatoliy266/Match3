@@ -18,7 +18,7 @@ MonoBehaviour:
   Steps: 15
   RegiularTilesList: 00000000010000000200000005000000
   BonusTilesList: 000000000100000002000000
-  backgroundSprite: {fileID: 8750230940053459384, guid: f2fd6eca5611ce647b5ec80000a69dfe, type: 3}
+  backgroundSprite: {fileID: -8212735365783306809, guid: b1b5df2416c31df4ebc68703523df9cf, type: 3}
   ropesGoalsList:
   - Kind:
       KindType: 0

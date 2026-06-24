@@ -10,10 +10,18 @@ public class StepsUnitController : MonoBehaviour
     internal void Initialize(int steps)
     {
         _count = steps;
-        Count.text = $"{_count}";
+        if (_count < 0)
+        {
+            Count.text = "∞";
+        }
+        else
+        {
+            Count.text = $"{_count}";
+        }
     }
     public void UpdateSteps(int step)
     {
+        if (_count < 0) return;
         Count.text = $"{_count - step}";
     }
 

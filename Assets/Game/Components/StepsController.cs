@@ -25,6 +25,10 @@ public class StepsController : MonoBehaviour
     public void Initialize(LevelSettings settings)
     {
         if (settings == null || settings.ropesGoalsList == null) return;
+        if (_currentUnit != null)
+        {
+            Destroy(_currentUnit.gameObject);
+        }
         _currentUnit = Instantiate(StepsPrefab, this.transform);
         _currentUnit.Initialize(settings.Steps);
     }
@@ -32,6 +36,9 @@ public class StepsController : MonoBehaviour
     private void OnStepChanged(int step)
     {
         Debug.Log("пришел ивент что степ++");
-        _currentUnit.UpdateSteps(step);
+        if (_currentUnit != null)
+        {
+            _currentUnit.UpdateSteps(step);
+        }
     }
 }

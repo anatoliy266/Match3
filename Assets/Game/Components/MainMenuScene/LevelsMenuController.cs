@@ -1,17 +1,20 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class LevelsMenuController : MonoBehaviour
 {
     [SerializeField][Req] private LevelItem levelMenuItem;
     [SerializeField][Req] Levels Levels;
-    [SerializeField][Req] SessionData SessionData;
-
+    
     [SerializeField][Req] private VerticalLayoutGroup contentLayout;
 
     private List<LevelItem> _levelItems = new List<LevelItem>();
+
+    // События, на которые подпишется MainMenuController
+    public event Action<int> OnLevelSelected;
+    public event Action OnCloseRequested;
 
     public void Initialize()
     {
@@ -20,22 +23,30 @@ public class LevelsMenuController : MonoBehaviour
         {
             var parent = contentLayout != null ? contentLayout.transform : this.transform;
 
+            var settings = Levels.GetLevelSettings(i);
+            if (settings == null)
+                continue;
+
             var levelItem = Instantiate(levelMenuItem, parent);
-            levelItem.Fill(Levels.GetLevelSettings(i), this);
+            levelItem.Fill(settings, this);
             _levelItems.Add(levelItem);
         }
     }
 
     public void RunLevel(int levelId)
     {
-        this.gameObject.SetActive(false);
+        
+        OnLevelSelected?.Invoke(levelId);
+    }
 
-        SessionData.currentLevelId = levelId;
-        SceneManager.LoadScene("LevelScene");
+    public void RunInfiniteLevel()
+    {
+        
+        OnLevelSelected?.Invoke(-1);
     }
 
     public void CloseMenu()
     {
-        this.gameObject.SetActive(false);
+        OnCloseRequested?.Invoke();
     }
 }

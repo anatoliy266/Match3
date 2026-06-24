@@ -2,21 +2,22 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-[Serializable]
-public class LevelMapping
-{
-    [Tooltip("номер уровня")]
-    public int levelId;
+//[Serializable]
+//public class LevelMapping
+//{
+//    [Tooltip("номер уровня")]
+//    public int levelId;
 
-    [Tooltip("Настройки уровня")]
-    public LevelSettings settings;
-}
+//    [Tooltip("Настройки уровня")]
+//    public LevelSettings settings;
+//}
 
 [CreateAssetMenu(fileName = "Levels", menuName = "Scriptable Objects/Levels")]
 public class Levels : ScriptableObject
 {
     [SerializeField]
-    private List<LevelMapping> levelsMap;
+    //private List<LevelMapping> levelsMap;
+    private List<LevelSettings> levelsMap;
 
     private Dictionary<int, LevelSettings> _settings;
 
@@ -32,12 +33,12 @@ public class Levels : ScriptableObject
         _settings = new Dictionary<int, LevelSettings>();
         if (levelsMap is not null)
         {
-            foreach (var mapping in levelsMap)
+            foreach (var setting in levelsMap)
             {
-                if (mapping.settings is not null)
+                if (setting is not null)
                 {
                     // Используем индексатор, чтобы безопасно перезаписать данные, если тип продублирован в инспекторе
-                    _settings[mapping.levelId] = mapping.settings;
+                    _settings[setting.levelNumber] = setting;
                 }
             }
         }
@@ -45,6 +46,8 @@ public class Levels : ScriptableObject
 
     public LevelSettings GetLevelSettings(int id)
     {
-        return _settings[id];
+        if (_settings.ContainsKey(id))
+            return _settings[id];
+        else return null;
     }
 }
