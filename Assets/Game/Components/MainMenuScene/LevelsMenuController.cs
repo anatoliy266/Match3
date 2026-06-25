@@ -27,7 +27,7 @@ public class LevelsMenuController : MonoBehaviour
             if (settings == null)
                 continue;
 
-            var levelItem = Instantiate(levelMenuItem, parent);
+            var levelItem = Instantiate(levelMenuItem, parent, false);
             levelItem.Fill(settings, this);
             _levelItems.Add(levelItem);
         }

@@ -18,8 +18,8 @@ MonoBehaviour:
   - soundID: 1
     audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
   - soundID: 3
-    audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
+    audio: {fileID: 8300000, guid: d74f15c4c7c2b45468d11a41e4be895c, type: 3}
   - soundID: 4
-    audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
+    audio: {fileID: 8300000, guid: f3b1b430cd672ca4ab02e35220600c55, type: 3}
   - soundID: 5
-    audio: {fileID: 8300000, guid: b09329eb89ed9c4409c6d8cb1e9a32ec, type: 3}
+    audio: {fileID: 8300000, guid: c7732969dbb060c42a0ff250179f8518, type: 3}

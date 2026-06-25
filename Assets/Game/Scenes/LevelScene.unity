@@ -176,7 +176,6 @@ MonoBehaviour:
   Canvas: {fileID: 803574533}
   WinPanel: {fileID: 2455497643832284127, guid: ade7f6da155c13340be03fdddb93d211, type: 3}
   Levels: {fileID: 11400000, guid: fc57105ad36e2d141b044c12b6af79b0, type: 2}
-  SessionData: {fileID: 11400000, guid: ed10715419595b849b82f79a968fc344, type: 2}
   settings: {fileID: 1909878447417707371, guid: 94df4e405078da9429e77cf5c6deab8e, type: 3}
   confirm: {fileID: 6369982261835188178, guid: 4ad98ff54095d0b419b1d8d9f87cd3a4, type: 3}
   sucessNotification: {fileID: 1840527645120962449, guid: ded4d6c7020742844a4a35c7bb6d0a62, type: 3}
@@ -1471,7 +1470,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -8919761378256518643, guid: 33d5ebb9f279db1419985b3ca91173ba, type: 3}
+  m_Sprite: {fileID: 5428179340570738698, guid: e7e80a26d25371c4b95ea829d361e447, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1769,7 +1768,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 3214033782254268483, guid: 4b40d34f8550695489c675f9e0014044, type: 3}
+  m_Sprite: {fileID: 6389431915087070993, guid: e7e80a26d25371c4b95ea829d361e447, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
