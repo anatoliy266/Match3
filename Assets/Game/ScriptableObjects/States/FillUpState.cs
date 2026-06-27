@@ -9,6 +9,7 @@ public class FillUpState : GameState
     [Req] public Events Events;
     [Req] public SpawnRules SpawnRules;
     [Req] public MatchRules MatchRules;
+    [Req] public BlockerDestroyRules BlockerDestroyRules;
 
     public override void Enter(FiniteStateMachine machine)
     {
@@ -63,6 +64,12 @@ public class FillUpState : GameState
         }
         CollectionPool<List<TileTransitionData>, TileTransitionData>.Release(transitions);
 
+        // выталкиваем фишки из невидимых клеток вниз
+        EjectFromInvisibleCells(machine, snapshot);
+
+        // проверка Safe-блокираторов на нижнем ряду после гравитации
+        ProcessSafeBlockers(machine, snapshot);
+
         //заполнение пустых
         var spawns = CollectionPool<List<SpawnInfo>, SpawnInfo>.Get();
         spawns.Clear();
@@ -88,5 +95,65 @@ public class FillUpState : GameState
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
 
         machine.Switch(StateEvent.FillUpTiles);
+    }
+
+    private void EjectFromInvisibleCells(FiniteStateMachine machine, LogicalTile?[,] snapshot)
+    {
+        var rows = snapshot.GetLength(0);
+        var cols = snapshot.GetLength(1);
+
+        for (var i = 0; i < rows; i++)
+        {
+            for (var j = 0; j < cols; j++)
+            {
+                var pos = new Vector2Int(i, j);
+                if (!machine.Field.IsInvisibleCell(pos)) continue;
+                if (snapshot[i, j] is null) continue;
+
+                var tile = snapshot[i, j].Value;
+                machine.Field.ClearTileAt(pos);
+                snapshot[i, j] = null;
+
+                for (var r = i + 1; r < rows; r++)
+                {
+                    var below = new Vector2Int(r, j);
+                    if (snapshot[r, j] is null && !machine.Field.IsInvisibleCell(below))
+                    {
+                        machine.Field.SetTileAt(below, tile);
+                        snapshot[r, j] = tile;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void ProcessSafeBlockers(FiniteStateMachine machine, LogicalTile?[,] snapshot)
+    {
+        var bounds = machine.Field.GetBounds();
+        machine.Blackboard.EnsureBlockerList();
+        var blockersToRemove = machine.Blackboard.CurrentBlockersToRemove;
+        var rows = snapshot.GetLength(0);
+
+        for (var i = 0; i < bounds.x; i++)
+        {
+            for (var j = 0; j < bounds.y; j++)
+            {
+                var pos = new Vector2Int(i, j);
+                var tile = snapshot[i, j];
+                if (tile is null) continue;
+                if (tile.Value.Type.KindType != TileKindType.Blocker) continue;
+
+                var rule = BlockerDestroyRules.GetRule(tile.Value.Type.BlockerType);
+                if (rule == null) continue;
+
+                if (rule.ShouldDestroy(pos, snapshot, null))
+                {
+                    blockersToRemove.Add(tile.Value);
+                    machine.Field.ClearTileAt(pos);
+                    snapshot[i, j] = null;
+                }
+            }
+        }
     }
 }

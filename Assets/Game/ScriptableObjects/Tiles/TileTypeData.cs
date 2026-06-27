@@ -25,15 +25,26 @@ public class BonusTileDataMapping
     public TileDataBase data;
 }
 
+[Serializable]
+public class BlockerTileDataMapping
+{
+    [Tooltip("Тип блокиратора")]
+    public BlockerType tileType;
+
+    [Tooltip("Data")]
+    public TileDataBase data;
+}
 
 [CreateAssetMenu(fileName = "TileTypeData", menuName = "Scriptable Objects/TileTypeData")]
 public class TileTypeData : ScriptableObject
 {
     [SerializeField] List<RegularTileDataMapping> RegularTiles;
     [SerializeField] List<BonusTileDataMapping> BonusTiles;
+    [SerializeField] List<BlockerTileDataMapping> BlockerTiles;
 
     private Dictionary<RegularType, TileDataBase> _regularLookup;
     private Dictionary<BonusType, TileDataBase> _bonusLookup;
+    private Dictionary<BlockerType, TileDataBase> _blockerLookup;
 
     private void OnEnable()
     {
@@ -69,13 +80,34 @@ public class TileTypeData : ScriptableObject
                 _bonusLookup[mapping.tileType] = mapping.data;
             }
         }
+
+        if (_blockerLookup == null)
+            _blockerLookup = new Dictionary<BlockerType, TileDataBase>(BlockerTiles.Count);
+        else
+            _blockerLookup.Clear();
+
+        for (int i = 0; i < BlockerTiles.Count; i++)
+        {
+            var mapping = BlockerTiles[i];
+            if (mapping != null && mapping.data != null)
+            {
+                _blockerLookup[mapping.tileType] = mapping.data;
+            }
+        }
     }
 
     public TileDataBase GetData(TileKind kind)
     {
-        if (kind.KindType == TileKindType.Regular)
-            return _regularLookup[kind.RegularType];
-        else
-            return _bonusLookup[kind.BonusType];
+        switch (kind.KindType)
+        {
+            case TileKindType.Regular:
+                return _regularLookup[kind.RegularType];
+            case TileKindType.Bonus:
+                return _bonusLookup[kind.BonusType];
+            case TileKindType.Blocker:
+                return _blockerLookup[kind.BlockerType];
+            default:
+                return null;
+        }
     }
 }

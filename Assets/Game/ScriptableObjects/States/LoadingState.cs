@@ -35,6 +35,7 @@ public class LoadingState : GameState
         }
         CollectionPool<List<SpawnInfo>, SpawnInfo>.Release(spawns);
 
+        PlaceBlockers(machine);
 
         snapshot = machine.Field.ToSnapshot();
 
@@ -42,5 +43,32 @@ public class LoadingState : GameState
         GameplayEventBus<LogicalTile?[,]>.Trigger(animname, snapshot);
 
         machine.Switch(StateEvent.FinishLoading);
+    }
+
+    private void PlaceBlockers(FiniteStateMachine machine)
+    {
+        var settings = machine.Blackboard.LevelSettings;
+        if (settings.Blockers == null || settings.Blockers.Count == 0) return;
+
+        var bounds = machine.Field.GetBounds();
+        for (int i = 0; i < settings.Blockers.Count; i++)
+        {
+            var placement = settings.Blockers[i];
+            if (placement.Position.x >= bounds.x || placement.Position.y >= bounds.y)
+                continue;
+
+            if (placement.Type == BlockerType.Invisible)
+            {
+                machine.Field.SetInvisibleCell(placement.Position);
+                continue;
+            }
+
+            var tile = new LogicalTile
+            {
+                Id = machine.Field.GenerateUniqueId(),
+                Type = TileKind.Blocker(placement.Type),
+            };
+            machine.Field.SetTileAt(placement.Position, tile);
+        }
     }
 }

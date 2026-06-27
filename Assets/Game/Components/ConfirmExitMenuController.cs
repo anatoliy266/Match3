@@ -21,8 +21,8 @@ public class ConfirmExitMenuController : MonoBehaviour
         }
 
 
-        YG2.onCloseInterAdv += OnInterstitialClosed;
-        YG2.InterstitialAdvShow();
+        //YG2.onCloseInterAdv += OnInterstitialClosed;
+        //YG2.InterstitialAdvShow();
 
     }
 

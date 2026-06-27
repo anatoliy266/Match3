@@ -27,6 +27,7 @@ public class SpawnEvaluator
             for (var j = 0; j < c; j++)
             {
                 if (snapshot[i, j] is not null) continue;
+                if (machine.Field.IsInvisibleCell(new Vector2Int(i, j))) continue;
 
                 var group = ListPool<Guid>.Get();
 

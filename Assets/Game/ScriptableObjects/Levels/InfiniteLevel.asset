@@ -20,3 +20,10 @@ MonoBehaviour:
   BonusTilesList: 000000000100000002000000
   backgroundSprite: {fileID: -5239265548855951963, guid: e02ff33c904d6644c98ff3803cb174c1, type: 3}
   ropesGoalsList: []
+  Blockers:
+  - Type: 0
+    Position: {x: 0, y: 0}
+  - Type: 1
+    Position: {x: 0, y: 0}
+  - Type: 2
+    Position: {x: 0, y: 0}

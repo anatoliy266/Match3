@@ -8,7 +8,8 @@ public enum GameSound
     Spawn,
     DestroyBomb,
     DestroyVerticalBomb,
-    DestroyHorizontalBomb
+    DestroyHorizontalBomb,
+    DestroyBlocker
 }
 
 

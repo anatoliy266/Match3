@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -21,13 +22,21 @@ public class Field : MonoBehaviour
     private int _cols = 1;
 
     private LogicalTile?[,] _logicalTiles;
+    private HashSet<Vector2Int> _invisibleCells;
 
     public void Initialize(LevelSettings data)
     {
         _rows = data.Rows;
         _cols = data.Columns;
         _logicalTiles = new LogicalTile?[_rows, _cols];
+        _invisibleCells = new HashSet<Vector2Int>();
     }
+
+    public bool IsInvisibleCell(Vector2Int pos) => _invisibleCells != null && _invisibleCells.Contains(pos);
+
+    public void SetInvisibleCell(Vector2Int pos) => _invisibleCells?.Add(pos);
+
+    public IEnumerable<Vector2Int> GetInvisiblePositions() => _invisibleCells ?? Enumerable.Empty<Vector2Int>();
 
 
     public LogicalTile?[,] ToSnapshot()

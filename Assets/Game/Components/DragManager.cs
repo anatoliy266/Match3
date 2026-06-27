@@ -67,6 +67,7 @@ public class DragManager : MonoBehaviour
         {
             if (hit.transform.TryGetComponent<Tile>(out var tile))
             {
+                if (tile.Type.KindType == TileKindType.Blocker) return;
                 //Debug.Log($"[DragManager] Source tile found: {tile.Id}");
                 Source = tile;
                 SourceStartPos = tile.transform.position;
@@ -130,6 +131,7 @@ public class DragManager : MonoBehaviour
             {
                 if (hit.transform.TryGetComponent<Tile>(out var tile))
                 {
+                    if (tile.Type.KindType == TileKindType.Blocker) return;
                     Dest = tile;
                     DestStartPos = tile.transform.position;
                     Dest.transform.position = SourceStartPos;

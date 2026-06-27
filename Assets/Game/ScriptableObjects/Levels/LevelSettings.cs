@@ -12,6 +12,13 @@ public struct RopeGoal
     public int count;
 }
 
+[System.Serializable]
+public struct BlockerPlacement
+{
+    public BlockerType Type;
+    public Vector2Int Position;
+}
+
 [CreateAssetMenu(fileName = "Level", menuName = "Levels/New Level")]
 public class LevelSettings : ScriptableObject
 {
@@ -28,4 +35,7 @@ public class LevelSettings : ScriptableObject
 
     [Header("Level Goals")]
     public List<RopeGoal> ropesGoalsList;
+
+    [Header("Blockers")]
+    public List<BlockerPlacement> Blockers;
 }

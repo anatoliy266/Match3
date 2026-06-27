@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class FieldBlackboard
 {
+    public LevelSettings LevelSettings { get; set; }
+
     // ==========================================
     // 1. ДАННЫЕ ДЛЯ СВАПА (Записывает IdleState, читает SwapState)
     // ==========================================
@@ -42,6 +44,11 @@ public class FieldBlackboard
     public bool IsFinalState { get; internal set; }
 
     // ==========================================
+    // 4. ДАННЫЕ ДЛЯ БЛОКИРАТОРОВ
+    // ==========================================
+    public List<LogicalTile> CurrentBlockersToRemove { get; set; } = new List<LogicalTile>();
+
+    // ==========================================
     // МЕТОД СБРОСА (Вызывается при переходе в IdleState в конце хода)
     // ==========================================
     public void Reset()
@@ -56,5 +63,14 @@ public class FieldBlackboard
 
         // Сбрасываем счетчик комбо
         CascadeIteration = 0;
+
+        CurrentBlockersToRemove?.Clear();
+        CurrentBlockersToRemove = null;
+    }
+
+    public void EnsureBlockerList()
+    {
+        if (CurrentBlockersToRemove == null)
+            CurrentBlockersToRemove = new List<LogicalTile>();
     }
 }

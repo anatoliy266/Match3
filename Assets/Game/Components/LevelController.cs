@@ -39,7 +39,7 @@ public class LevelController : MonoBehaviour
 
     [SerializeField][Req] private SettingsMenuController settings;
     [SerializeField][Req] private ConfirmExitMenuController confirm;
-
+    [SerializeField][Req] private EndOfLevelsController endOfLevels;
     [SerializeField][Req] private SuccessNotificationController sucessNotification;
 
 
@@ -53,6 +53,7 @@ public class LevelController : MonoBehaviour
     private ConfirmExitMenuController _confirmMenu;
 
     private SuccessNotificationController _successNotification;
+    private EndOfLevelsController _endOfLevels;
 
     private void OnEnable()
     {
@@ -83,6 +84,16 @@ public class LevelController : MonoBehaviour
 
     public void StartLevel(LevelSettings levelSettings)
     {
+        if (levelSettings == null)
+        {
+            if (_endOfLevels == null)
+            {
+                _endOfLevels = Instantiate(endOfLevels, Canvas.transform);
+            }
+            else _endOfLevels.gameObject.SetActive(true);
+            return;
+        }
+
         _isLevelEnded = false;
 
         _currentLevelSettings = levelSettings;

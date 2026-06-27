@@ -14,8 +14,27 @@ public static class TwoPointers
     {
         var r = context.Snapshot.GetLength(0);
         var col = startPos.y;
-        var write = 0;
+        var segmentStart = 0;
+
         for (var read = 0; read < r; read++)
+        {
+            if (context.Snapshot[read, col] is null) continue;
+
+            var tile = context.Snapshot[read, col].Value;
+            if (tile.Type.IsAnchored)
+            {
+                CompactSegment(segmentStart, read, col, context, groupResult);
+                segmentStart = read + 1;
+            }
+        }
+
+        CompactSegment(segmentStart, r, col, context, groupResult);
+    }
+
+    private static void CompactSegment(int segmentStart, int segmentEnd, int col, AlgoritmContext context, List<TileTransitionData> groupResult)
+    {
+        var write = segmentStart;
+        for (var read = segmentStart; read < segmentEnd; read++)
         {
             if (context.Snapshot[read, col] is null) continue;
             if (read != write)

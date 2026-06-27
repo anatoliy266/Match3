@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Level100
   m_EditorClassIdentifier: Assembly-CSharp::LevelSettings
   levelNumber: 100
-  Rows: 12
+  Rows: 10
   Columns: 12
-  Steps: 3
+  Steps: 40
   RegiularTilesList: 000000000100000002000000030000000400000005000000
   BonusTilesList: 000000000100000002000000
   backgroundSprite: {fileID: 3287579595892397182, guid: d4c49d210df40664c9eec4ce297eac84, type: 3}
@@ -24,14 +24,18 @@ MonoBehaviour:
       KindType: 0
       RegularType: 4
       BonusType: 0
+      BlockerType: 0
     count: 36
   - Kind:
       KindType: 0
       RegularType: 5
       BonusType: 0
+      BlockerType: 0
     count: 38
   - Kind:
       KindType: 0
       RegularType: 0
       BonusType: 0
+      BlockerType: 0
     count: 40
+  Blockers: []

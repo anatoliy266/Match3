@@ -24,4 +24,8 @@ MonoBehaviour:
       KindType: 0
       RegularType: 0
       BonusType: 0
+      BlockerType: 0
     count: 10
+  Blockers:
+  - Type: 1
+    Position: {x: 5, y: 5}

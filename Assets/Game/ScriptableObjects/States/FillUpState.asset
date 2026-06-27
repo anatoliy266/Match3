@@ -15,3 +15,4 @@ MonoBehaviour:
   Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
   SpawnRules: {fileID: 11400000, guid: 5ea962db087fe93438785012cb47227c, type: 2}
   MatchRules: {fileID: 11400000, guid: 40a2388486a6756409eedc8363a906ba, type: 2}
+  BlockerDestroyRules: {fileID: 11400000, guid: 620cffc5d77446b4e90e935baaef80cc, type: 2}

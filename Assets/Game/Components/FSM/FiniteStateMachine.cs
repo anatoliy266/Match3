@@ -31,6 +31,7 @@ public class FiniteStateMachine : MonoBehaviour
         Blackboard.Step = 0;
         Blackboard.CascadeIteration = 0;
         Blackboard.IsFinalState = false;
+        Blackboard.LevelSettings = settings;
     }
 
     public void Run()

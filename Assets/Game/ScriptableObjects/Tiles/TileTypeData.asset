@@ -32,3 +32,10 @@ MonoBehaviour:
     data: {fileID: 11400000, guid: 2c555a4710f297844bab81729e0607b8, type: 2}
   - tileType: 2
     data: {fileID: 11400000, guid: acb87215003830f4dbacfb924e3fa6ca, type: 2}
+  BlockerTiles:
+  - tileType: 0
+    data: {fileID: 11400000, guid: 1b154f8d1bfe6ae48b244f1a3020ccce, type: 2}
+  - tileType: 1
+    data: {fileID: 11400000, guid: 92f3bb7220caa37488fd1ef92ecb846f, type: 2}
+  - tileType: 2
+    data: {fileID: 11400000, guid: cd94070129f2f4946b98f68797b9aa55, type: 2}

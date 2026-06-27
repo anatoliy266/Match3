@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26f3e3d4607b44c409676d08d563a4b5, type: 3}
+  m_Name: BlockerDestroyRules
+  m_EditorClassIdentifier: Assembly-CSharp::BlockerDestroyRules
+  mappings:
+  - blockerType: 0
+    rule: {fileID: 11400000, guid: 586c156c697301c46a9ae58a11fc1c3b, type: 2}
+  - blockerType: 1
+    rule: {fileID: 11400000, guid: 4d97ac0b67dd83544a7205901591bd69, type: 2}
+  - blockerType: 2
+    rule: {fileID: 11400000, guid: ef50b3e0d93eff342a62d1c09f8e079d, type: 2}

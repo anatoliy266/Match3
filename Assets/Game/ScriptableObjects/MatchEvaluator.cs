@@ -34,7 +34,8 @@ public class MatchEvaluator
             for (var j = 0; j < c; j++)
             {
                 if (snapshot[i, j] is null) continue;
-                if (snapshot[i, j].Value.Type.KindType == TileKindType.Bonus) continue;
+                var kindType = snapshot[i, j].Value.Type.KindType;
+                if (kindType == TileKindType.Bonus || kindType == TileKindType.Blocker) continue;
                 if (visited[i * c + j]) continue;
 
                 var pos = new Vector2Int(i, j);
@@ -92,6 +93,7 @@ public class MatchEvaluator
         if (snapshot[position.x, position.y] is null) return;
         var type = snapshot[position.x, position.y].Value.Type;
         if (type.KindType == TileKindType.Regular) return;
+        if (type.KindType == TileKindType.Blocker) return;
 
         var tileRules = rules.GetRules(type);
         var group = new List<Guid>();

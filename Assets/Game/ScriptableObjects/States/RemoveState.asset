@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: RemoveState
   m_EditorClassIdentifier: Assembly-CSharp::RemoveState
   Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
+  BlockerDestroyRules: {fileID: 11400000, guid: 620cffc5d77446b4e90e935baaef80cc, type: 2}

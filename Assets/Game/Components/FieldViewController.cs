@@ -39,7 +39,14 @@ readonly struct BonusSource
 public class FieldViewController : MonoBehaviour
 {
     [Req] public FieldView View;
+    [Req] public Field Field;
     [Req] public Events Events;
+
+    private void Awake()
+    {
+        if (Field == null)
+            Field = FindObjectOfType<Field>();
+    }
     [Req] public MatchRules BonusMatchRules;
 
     private Queue<LogicalTile?[,]> _queue = new Queue<LogicalTile?[,]>();
@@ -60,6 +67,12 @@ public class FieldViewController : MonoBehaviour
                 var tile = snapshot[i, j].Value;
                 View.CreateVisualTile(tile.Id, tile.Type, new Vector2Int(i, j), new Vector2Int(i, j));
             }
+        }
+
+        View.ClearInvisibleMarkers();
+        foreach (var pos in Field.GetInvisiblePositions())
+        {
+            View.CreateInvisibleMarker(pos);
         }
     }
 
@@ -204,6 +217,7 @@ public class FieldViewController : MonoBehaviour
             var data = new AnimationData
             {
                 Id = kvp.Key,
+                Kind = tile is not null ? tile.Value.Type : default,
                 From = pos,
                 Action = AnimateAction.Destroy,
                 IsBonusAffected = isBonus,
@@ -271,9 +285,16 @@ public class FieldViewController : MonoBehaviour
                 case AnimateAction.Spawn: tileSeq = GetSpawnSequence(item); break;
                 case AnimateAction.Move: tileSeq = GetMoveSequence(item); break;
                 case AnimateAction.Destroy:
-                    tileSeq = item.IsBonusAffected
-                        ? GetBonusDestroySequence(item, item.SourceBonusType)
-                        : GetDestroySequence(item);
+                    if (item.Kind.KindType == TileKindType.Blocker)
+                    {
+                        tileSeq = GetBlockerDestroySequence(item);
+                    }
+                    else
+                    {
+                        tileSeq = item.IsBonusAffected
+                            ? GetBonusDestroySequence(item, item.SourceBonusType)
+                            : GetDestroySequence(item);
+                    }
                     break;
                 default: tileSeq = Sequence.Create(); break;
             }
@@ -331,6 +352,39 @@ public class FieldViewController : MonoBehaviour
 
     private const float StretchY = 1.15f;
     private const float SquashY = 0.85f;
+
+    private Sequence GetBlockerDestroySequence(AnimationData dataItem)
+    {
+        var target = View.GetVisualTileAt(dataItem.Id);
+        if (target == null) return Sequence.Create();
+
+        var seq = Sequence.Create();
+
+        seq.ChainCallback(() =>
+        {
+            var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
+            GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyBlocker);
+        });
+
+        if (dataItem.Kind.BlockerType == BlockerType.Safe)
+        {
+            var startPos = View.GetWorldPos(dataItem.From);
+            var fallTarget = View.GetWorldPos(new Vector2Int(-2, dataItem.From.y));
+            float fallDuration = 0.2f + UnityEngine.Random.Range(0f, 0.16f);
+            seq.Chain(Tween.Position(target.transform, startPos, fallTarget, fallDuration, Ease.InQuad));
+            seq.ChainCallback(() => { View.ClearVisualTile(dataItem.Id); });
+        }
+        else
+        {
+            seq.Chain(Tween.Scale(target.transform, new Vector3(1.3f, 1.3f, 1f), 0.05f, Ease.OutQuad));
+            seq.Chain(Tween.Scale(target.transform, Vector3.zero, 0.2f, Ease.InBack).OnComplete(() =>
+            {
+                View.ClearVisualTile(dataItem.Id);
+            }));
+        }
+
+        return seq;
+    }
 
     private Sequence GetMoveSequence(AnimationData dataItem)
     {

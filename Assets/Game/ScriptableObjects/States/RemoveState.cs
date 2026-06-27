@@ -10,6 +10,7 @@ using static UnityEngine.Rendering.DebugUI;
 public class RemoveState : GameState
 {
     [Req] public Events Events;
+    [Req] public BlockerDestroyRules BlockerDestroyRules;
 
     public override void Enter(FiniteStateMachine machine)
     {
@@ -19,8 +20,10 @@ public class RemoveState : GameState
         positionsCache.Clear();
         machine.Field.ToPositionChache(positionsCache);
 
-
         var matches = machine.Blackboard.CurrentMatches;
+
+        ProcessBlockers(machine, prevSnapshot, matches);
+
         for (var i = 0; i < matches.Count; i++)
         {
             var match = matches[i];
@@ -48,5 +51,33 @@ public class RemoveState : GameState
         DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 
         machine.Switch(StateEvent.DestroyTiles);
+    }
+
+    private void ProcessBlockers(FiniteStateMachine machine, LogicalTile?[,] snapshotBeforeClear, List<MatchInfo> matches)
+    {
+        var bounds = machine.Field.GetBounds();
+        machine.Blackboard.EnsureBlockerList();
+        var blockersToRemove = machine.Blackboard.CurrentBlockersToRemove;
+        blockersToRemove.Clear();
+
+        for (var i = 0; i < bounds.x; i++)
+        {
+            for (var j = 0; j < bounds.y; j++)
+            {
+                var pos = new Vector2Int(i, j);
+                var tile = snapshotBeforeClear[i, j];
+                if (tile is null) continue;
+                if (tile.Value.Type.KindType != TileKindType.Blocker) continue;
+
+                var rule = BlockerDestroyRules.GetRule(tile.Value.Type.BlockerType);
+                if (rule == null) continue;
+
+                if (rule.ShouldDestroy(pos, snapshotBeforeClear, matches))
+                {
+                    blockersToRemove.Add(tile.Value);
+                    machine.Field.ClearTileAt(pos);
+                }
+            }
+        }
     }
 }

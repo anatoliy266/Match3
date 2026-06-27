@@ -33,8 +33,9 @@ public class WinPanelController : MonoBehaviour
         YG2.saves.currentLevelId++;
         YG2.SaveProgress();
 
+        var level = Levels.GetLevelSettings(YG2.saves.currentLevelId);
 
-        _levelController.StartLevel(Levels.GetLevelSettings(YG2.saves.currentLevelId));
+        _levelController.StartLevel(level);
     }
 
     public void Back()
