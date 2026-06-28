@@ -1,1 +1,1 @@
-public enum BlockerType { Box, Safe, Invisible }
+public enum BlockerType { Box, Safe, Frozen }

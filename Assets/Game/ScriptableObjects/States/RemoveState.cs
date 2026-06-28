@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Pool;
-using static UnityEditor.PlayerSettings;
-using static UnityEngine.Rendering.DebugUI;
 
 [CreateAssetMenu(fileName = "RemoveState", menuName = "Scriptable Objects/RemoveState")]
 public class RemoveState : GameState

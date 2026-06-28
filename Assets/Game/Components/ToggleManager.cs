@@ -42,13 +42,10 @@ public class ToggleManager : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"свич, значение до {CurrentValue}");
         CurrentValue = !CurrentValue;
 
         PlayerPrefs.SetInt(settingName, CurrentValue ? 1 : 0);
         PlayerPrefs.Save();
-
-        Debug.Log($"свич, значение после {CurrentValue}");
 
         var name = Events.GetBusName(GameEvent.SettingChanged);
         GameplayEventBus<bool>.Trigger(name, true);

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 public class FieldBlackboard
 {
@@ -35,6 +34,8 @@ public class FieldBlackboard
     public int Step { get; internal set; }
 
     public int MaxSteps {  get; internal set; }
+
+    public bool IsWin { get; internal set; }
 
     public List<Guid> BonusesToActivate { get; set; } = new List<Guid>();
 

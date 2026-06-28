@@ -1,9 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using TMPro;
-using Unity.Mathematics;
-using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.UI;
 using YG;
@@ -34,6 +30,7 @@ public class LevelController : MonoBehaviour
 
     [SerializeField][Req] private Canvas Canvas;
     [SerializeField][Req] private WinPanelController WinPanel;
+    [SerializeField][Req] private LosePanelController LosePanel;
 
     [SerializeField][Req] private Levels Levels;
 
@@ -47,6 +44,7 @@ public class LevelController : MonoBehaviour
     private FieldView _currentFieldViewInstance;
     private LevelSettings _currentLevelSettings;
     private WinPanelController _winPanel;
+    private LosePanelController _losePanel;
     private bool _isLevelEnded;
 
     private SettingsMenuController _settingsMenu;
@@ -126,8 +124,6 @@ public class LevelController : MonoBehaviour
 
         fsm.Init(_currentLevelSettings, _currentFieldInstance);
         fsm.Run();
-
-        Debug.Log($"[LevelManager] Уровень {levelSettings.levelNumber} успешно запущен!");
     }
 
     private void OnFieldSettled(int step)
@@ -140,14 +136,18 @@ public class LevelController : MonoBehaviour
         }
 
         bool isTargetReached = _isLevelEnded
-            || step > _currentLevelSettings.Steps
+            || step >= _currentLevelSettings.Steps
             || taskList.AreAllGoalsCompleted();
+
+
+        if (!_isLevelEnded)
+            fsm.Blackboard.IsWin = taskList.AreAllGoalsCompleted()
+                || fsm.Blackboard.MaxSteps - fsm.Blackboard.Step > 0;
 
         if (_isLevelEnded) GameplayEventBus<bool>.Trigger(name, isTargetReached);
         else if (isTargetReached)
         {
             _isLevelEnded = true;
-            Debug.Log("[LevelController] цели достигнуты");
 
             if (_successNotification == null)
             {
@@ -155,7 +155,6 @@ public class LevelController : MonoBehaviour
             }
             _successNotification.Initialize(isTargetReached);
             _successNotification.Show();
-
         }
         else
         {
@@ -169,10 +168,6 @@ public class LevelController : MonoBehaviour
 
         if (isWin)
         {
-            Debug.Log("[LevelController] ПОБЕДА! Поле успокоилось, все анимации завершены, цели достигнуты.");
-
-            //показать картинку с бекграунда как финал уровня на весь экран
-            //и какие нибудь звездочки типа рарность картинки.
             if (_winPanel == null)
             {
                 _winPanel = Instantiate(WinPanel, Canvas.transform);
@@ -186,8 +181,16 @@ public class LevelController : MonoBehaviour
         }
         else
         {
-            Debug.Log("[LevelController] ПОРАЖЕНИЕ!");
-            // порказывать какойто элемент типа "проиграл, попробуй еще раз"
+            if (_losePanel == null)
+            {
+                _losePanel = Instantiate(LosePanel, Canvas.transform);
+                _losePanel.transform.SetAsLastSibling();
+            }
+            else
+            {
+                _losePanel.gameObject.SetActive(true);
+            }
+            _losePanel.Init(this, _currentLevelSettings.backgroundSprite);
         }
     }
 

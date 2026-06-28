@@ -28,7 +28,7 @@ namespace YG
             [Tooltip("Simulation of an interstitial advertising campaign in Unity Editor.")]
 #endif
             public bool enableInterAdv = true;
-            
+
             [Tooltip(Langs.t_advIntervalSimulation), Min(0)]
             public int advIntervalSimulation = 60;
 

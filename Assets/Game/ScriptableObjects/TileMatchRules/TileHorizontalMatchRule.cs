@@ -1,5 +1,3 @@
-
-using System;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "TileHorizontalBombMatchRule", menuName = "Rules/Horizontal Bomb")]

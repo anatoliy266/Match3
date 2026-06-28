@@ -23,7 +23,7 @@ public static class Euclide
                 return candidate;
             }
 
-            candidate -= 2; 
+            candidate -= 2;
         }
 
         return 1;

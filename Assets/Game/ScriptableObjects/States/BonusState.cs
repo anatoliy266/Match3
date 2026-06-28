@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -58,8 +57,8 @@ public class BonusState : GameState
                 for (var j = 0; j < match.Positions.Count; j++)
                 {
                     var tileId = match.Positions[j];
-                    if (visited.Add(tileId) 
-                        && positionsCache.TryGetValue(tileId, out var tilePos) 
+                    if (visited.Add(tileId)
+                        && positionsCache.TryGetValue(tileId, out var tilePos)
                         && snapshot[tilePos.x, tilePos.y] is not null && snapshot[tilePos.x, tilePos.y].Value.Type.KindType == TileKindType.Bonus)
                     {
                         _bonusQueue.Enqueue(tileId);

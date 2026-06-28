@@ -2,17 +2,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.Pool;
-
-using static UnityEngine.Rendering.DebugUI;
 
 public struct LogicalTile
 {
-    public Guid Id {  get; set; }
+    public Guid Id { get; set; }
     public TileKind Type { get; set; }
 }
 
@@ -22,21 +16,13 @@ public class Field : MonoBehaviour
     private int _cols = 1;
 
     private LogicalTile?[,] _logicalTiles;
-    private HashSet<Vector2Int> _invisibleCells;
 
     public void Initialize(LevelSettings data)
     {
         _rows = data.Rows;
         _cols = data.Columns;
         _logicalTiles = new LogicalTile?[_rows, _cols];
-        _invisibleCells = new HashSet<Vector2Int>();
     }
-
-    public bool IsInvisibleCell(Vector2Int pos) => _invisibleCells != null && _invisibleCells.Contains(pos);
-
-    public void SetInvisibleCell(Vector2Int pos) => _invisibleCells?.Add(pos);
-
-    public IEnumerable<Vector2Int> GetInvisiblePositions() => _invisibleCells ?? Enumerable.Empty<Vector2Int>();
 
 
     public LogicalTile?[,] ToSnapshot()
@@ -54,9 +40,9 @@ public class Field : MonoBehaviour
         {
             for (int c = 0; c < _cols; c++)
             {
-                if (_logicalTiles[r,c] is not null)
+                if (_logicalTiles[r, c] is not null)
                 {
-                    positionsCache[_logicalTiles[r, c].Value.Id] = new Vector2Int(r,c);
+                    positionsCache[_logicalTiles[r, c].Value.Id] = new Vector2Int(r, c);
                 }
             }
         }
@@ -70,9 +56,9 @@ public class Field : MonoBehaviour
 
     public LogicalTile? GetTileAt(Guid sourceId)
     {
-        for (var i = 0 ; i < _rows; i++)
+        for (var i = 0; i < _rows; i++)
         {
-            for (var j = 0 ; j < _cols; j++)
+            for (var j = 0; j < _cols; j++)
             {
                 if (_logicalTiles[i, j] is not null && _logicalTiles[i, j].Value.Id == sourceId) return _logicalTiles[i, j];
             }

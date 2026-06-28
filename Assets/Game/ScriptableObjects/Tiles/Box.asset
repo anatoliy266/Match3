@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6474dd02d58973f4a95b77fa72e3cafe, type: 3}
   m_Name: Box
   m_EditorClassIdentifier: Assembly-CSharp::TileDataBase
-  Color: {r: 0, g: 0, b: 0, a: 0}
-  HighlightColor: {r: 0, g: 0, b: 0, a: 0}
-  ShadowColor: {r: 0, g: 0, b: 0, a: 0}
-  Sprite: {fileID: 0}
+  Color: {r: 0.33962262, g: 0.33962262, b: 0.33962262, a: 1}
+  HighlightColor: {r: 1, g: 1, b: 1, a: 1}
+  ShadowColor: {r: 0, g: 0, b: 0, a: 1}
+  Sprite: {fileID: 5192787776122856060, guid: 1cb79d85095f89944bb2616dc9c60c12, type: 3}

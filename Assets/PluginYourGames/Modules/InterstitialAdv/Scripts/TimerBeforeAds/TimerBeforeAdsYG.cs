@@ -39,7 +39,7 @@ namespace YG
             YG2.onOpenAnyAdv -= RestartTimer;
         }
 
-        IEnumerator CheckTimerAd()
+        private IEnumerator CheckTimerAd()
         {
             while (true)
             {
@@ -62,7 +62,7 @@ namespace YG
             }
         }
 
-        IEnumerator TimerAdShow()
+        private IEnumerator TimerAdShow()
         {
             while (true)
             {
@@ -91,7 +91,7 @@ namespace YG
             }
         }
 
-        IEnumerator BackupTimerClosure()
+        private IEnumerator BackupTimerClosure()
         {
             yield return new WaitForSecondsRealtime(2f);
 

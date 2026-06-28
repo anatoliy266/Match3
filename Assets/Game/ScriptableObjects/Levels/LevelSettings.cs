@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -27,6 +26,8 @@ public class LevelSettings : ScriptableObject
     public int Columns;
 
     public int Steps;
+
+    public LevelDifficulty Difficulty;
 
     public List<RegularType> RegiularTilesList;
     public List<BonusType> BonusTilesList;

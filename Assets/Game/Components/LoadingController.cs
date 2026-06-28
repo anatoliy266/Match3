@@ -16,7 +16,7 @@ public class LoadingController : MonoBehaviour
         //this.gameObject.SetActive(true);
         slider.value = 0;
         StartCoroutine(LoadSceneCoroutine(SceneName));
-        
+
     }
 
     private IEnumerator LoadSceneCoroutine(string sceneName)

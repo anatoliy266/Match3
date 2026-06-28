@@ -1,9 +1,6 @@
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Pool;
-using static UnityEngine.Rendering.DebugUI.Table;
 
 [CreateAssetMenu(fileName = "LoadingState", menuName = "Scriptable Objects/LoadingState")]
 public class LoadingState : GameState
@@ -56,12 +53,6 @@ public class LoadingState : GameState
             var placement = settings.Blockers[i];
             if (placement.Position.x >= bounds.x || placement.Position.y >= bounds.y)
                 continue;
-
-            if (placement.Type == BlockerType.Invisible)
-            {
-                machine.Field.SetInvisibleCell(placement.Position);
-                continue;
-            }
 
             var tile = new LogicalTile
             {

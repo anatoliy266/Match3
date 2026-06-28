@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,7 +11,7 @@ public class RegularTileDataMapping
 
     [Tooltip("Data")]
     public TileDataBase data;
-    
+
 }
 
 [Serializable]
@@ -38,9 +37,9 @@ public class BlockerTileDataMapping
 [CreateAssetMenu(fileName = "TileTypeData", menuName = "Scriptable Objects/TileTypeData")]
 public class TileTypeData : ScriptableObject
 {
-    [SerializeField] List<RegularTileDataMapping> RegularTiles;
-    [SerializeField] List<BonusTileDataMapping> BonusTiles;
-    [SerializeField] List<BlockerTileDataMapping> BlockerTiles;
+    [SerializeField] private List<RegularTileDataMapping> RegularTiles;
+    [SerializeField] private List<BonusTileDataMapping> BonusTiles;
+    [SerializeField] private List<BlockerTileDataMapping> BlockerTiles;
 
     private Dictionary<RegularType, TileDataBase> _regularLookup;
     private Dictionary<BonusType, TileDataBase> _bonusLookup;

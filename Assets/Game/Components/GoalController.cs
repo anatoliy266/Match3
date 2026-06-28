@@ -23,12 +23,6 @@ public class GoalController : MonoBehaviour
         _color = data.Color;
         _remainingCount = count;
         IsCompleted = false;
-        //if (GoalImage.material != null)
-        //{
-        //    Material uniqueMaterial = new Material(GoalImage.material);
-        //    uniqueMaterial.color = color;
-        //    GoalImage.material = uniqueMaterial;
-        //}
         GoalImage.sprite = data.Sprite;
         GoalImage.color = data.Color;
 

@@ -1,11 +1,7 @@
-using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Unity.AI.MCP.Editor.Tools;
 using UnityEngine;
 using UnityEngine.Pool;
-using static UnityEngine.Rendering.DebugUI.Table;
 
 [CreateAssetMenu(fileName = "Evaluatiion", menuName = "Scriptable Objects/Evaluatiion")]
 public class Evaluation : GameState

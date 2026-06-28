@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -13,7 +12,7 @@ public class FillUpState : GameState
 
     public override void Enter(FiniteStateMachine machine)
     {
-        
+
         var bounds = machine.Field.GetBounds();
         var snapshot = machine.Field.ToSnapshot();
 
@@ -32,7 +31,7 @@ public class FillUpState : GameState
                 snapshot[bonuses[i].Position.x, bonuses[i].Position.y] = tile;
             }
         }
-        
+
 
 
         //считаем какие плитки упадут на какие места
@@ -64,9 +63,6 @@ public class FillUpState : GameState
         }
         CollectionPool<List<TileTransitionData>, TileTransitionData>.Release(transitions);
 
-        // выталкиваем фишки из невидимых клеток вниз
-        EjectFromInvisibleCells(machine, snapshot);
-
         // проверка Safe-блокираторов на нижнем ряду после гравитации
         ProcessSafeBlockers(machine, snapshot);
 
@@ -95,37 +91,6 @@ public class FillUpState : GameState
         GameplayEventBus<LogicalTile?[,]>.Trigger(name, snapshot);
 
         machine.Switch(StateEvent.FillUpTiles);
-    }
-
-    private void EjectFromInvisibleCells(FiniteStateMachine machine, LogicalTile?[,] snapshot)
-    {
-        var rows = snapshot.GetLength(0);
-        var cols = snapshot.GetLength(1);
-
-        for (var i = 0; i < rows; i++)
-        {
-            for (var j = 0; j < cols; j++)
-            {
-                var pos = new Vector2Int(i, j);
-                if (!machine.Field.IsInvisibleCell(pos)) continue;
-                if (snapshot[i, j] is null) continue;
-
-                var tile = snapshot[i, j].Value;
-                machine.Field.ClearTileAt(pos);
-                snapshot[i, j] = null;
-
-                for (var r = i + 1; r < rows; r++)
-                {
-                    var below = new Vector2Int(r, j);
-                    if (snapshot[r, j] is null && !machine.Field.IsInvisibleCell(below))
-                    {
-                        machine.Field.SetTileAt(below, tile);
-                        snapshot[r, j] = tile;
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     private void ProcessSafeBlockers(FiniteStateMachine machine, LogicalTile?[,] snapshot)

@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "WaitingState", menuName = "Scriptable Objects/WaitingState")]

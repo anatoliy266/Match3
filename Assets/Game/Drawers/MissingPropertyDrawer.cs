@@ -2,7 +2,6 @@
 using UnityEditor;
 using UnityEngine;
 
-public class Req : PropertyAttribute { }
 
 [CustomPropertyDrawer(typeof(Req))]
 public class ReqDrawer : PropertyDrawer

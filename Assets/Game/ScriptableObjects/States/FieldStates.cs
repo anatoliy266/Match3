@@ -8,7 +8,7 @@ using UnityEngine;
 public class FieldStateMapping
 {
     [Tooltip("Состояние")]
-    [Req]public GameState State;
+    [Req] public GameState State;
 
     [Tooltip("Переходы")]
     public List<Transition> Transitions;

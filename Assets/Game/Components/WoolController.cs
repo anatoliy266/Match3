@@ -1,10 +1,6 @@
-using Newtonsoft.Json;
 using PrimeTween;
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Pool;
 
 [RequireComponent(typeof(SpriteRenderer))]
 public class WoolController : MonoBehaviour
@@ -52,7 +48,7 @@ public class WoolController : MonoBehaviour
     {
         if (!_isInitialized || _texturePixels == null) return;
         if (_snapDataQueue.Count == 0) return;
-        
+
         var snapData = _snapDataQueue.Dequeue();
         var destroyedTiles = UnityEngine.Pool.ListPool<TileKind>.Get();
         destroyedTiles.Clear();
@@ -235,7 +231,7 @@ public class WoolController : MonoBehaviour
 
     //        if (chosenIndex != -1)
     //        {
-                
+
     //            int targetRopeIndex = chosenIndex;
     //            _texturePixels[targetRopeIndex].r = 0.01f;
     //            Tween.Custom(

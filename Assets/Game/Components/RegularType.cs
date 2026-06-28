@@ -1,5 +1,4 @@
 ﻿using System;
-using UnityEngine;
 
 public enum RegularType { Red, Green, Blue, Yellow, Orange, Purple }
 public enum BonusType { Bomb, VerticalBomb, HorizontalBomb }
@@ -33,5 +32,5 @@ public struct TileKind
         BlockerType = type
     };
 
-    public bool IsAnchored => KindType == TileKindType.Blocker && BlockerType == BlockerType.Box;
+    public bool IsAnchored => KindType == TileKindType.Blocker && (BlockerType == BlockerType.Box || BlockerType == BlockerType.Frozen);
 }

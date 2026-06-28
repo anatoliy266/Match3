@@ -70,7 +70,7 @@ namespace YG
                 else
                     playerNameText.text = YG2.player.name;
 #else
-                    playerNameText.text = YG2.player.name;
+                playerNameText.text = YG2.player.name;
 #endif
             }
 #if TMP_YG2
@@ -84,7 +84,7 @@ namespace YG
                 else
                     playerNameTMP.text = YG2.player.name;
 #else
-                    playerNameTMP.text = YG2.player.name;
+                playerNameTMP.text = YG2.player.name;
 #endif
             }
 #endif

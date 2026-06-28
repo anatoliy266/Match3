@@ -9,7 +9,7 @@ namespace YG.Example
         public string textRU;
 
 #if RU_YG2
-        void Start()
+        private void Start()
         {
             if (textRU != string.Empty)
                 GetComponent<Text>().text = textRU;

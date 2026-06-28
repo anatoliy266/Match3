@@ -35,7 +35,6 @@ public class StepsController : MonoBehaviour
 
     private void OnStepChanged(int step)
     {
-        Debug.Log("пришел ивент что степ++");
         if (_currentUnit != null)
         {
             _currentUnit.UpdateSteps(step);

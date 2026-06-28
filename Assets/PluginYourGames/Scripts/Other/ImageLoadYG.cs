@@ -1,9 +1,9 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.Networking;
-using System;
+using UnityEngine.UI;
 
 namespace YG
 {
@@ -19,7 +19,7 @@ namespace YG
         public RawImage rawImage;
         public Image spriteImage;
         public GameObject loadAnimObj;
-        [SerializeField] bool log;
+        [SerializeField] private bool log;
 
         public Action onTextureLoad;
 
@@ -83,7 +83,7 @@ namespace YG
                 loadAnimObj.SetActive(false);
         }
 
-        IEnumerator LoadTexture(string url)
+        private IEnumerator LoadTexture(string url)
         {
             if (loadAnimObj)
                 loadAnimObj.SetActive(true);

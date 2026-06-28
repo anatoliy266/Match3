@@ -26,8 +26,8 @@ public class Events : ScriptableObject
     [System.Serializable]
     public struct EventConfig
     {
-        public GameEvent eventID; 
-        public string busName; 
+        public GameEvent eventID;
+        public string busName;
     }
 
     [SerializeField] private List<EventConfig> events = new List<EventConfig>();

@@ -15,7 +15,8 @@ MonoBehaviour:
   levelNumber: 76
   Rows: 11
   Columns: 11
-  Steps: 7
+  Steps: 62
+  Difficulty: 1
   RegiularTilesList: 000000000100000002000000030000000400000005000000
   BonusTilesList: 000000000100000002000000
   backgroundSprite: {fileID: 3287579595892397182, guid: d4c49d210df40664c9eec4ce297eac84, type: 3}
@@ -24,14 +25,55 @@ MonoBehaviour:
       KindType: 0
       RegularType: 4
       BonusType: 0
-    count: 43
+    count: 37
   - Kind:
       KindType: 0
       RegularType: 5
       BonusType: 0
-    count: 45
+    count: 38
   - Kind:
       KindType: 0
       RegularType: 0
       BonusType: 0
-    count: 47
+    count: 40
+  - Kind:
+      KindType: 2
+      BlockerType: 0
+    count: 9
+  Blockers:
+  - Type: 1
+    Position: {x: 0, y: 4}
+  - Type: 1
+    Position: {x: 7, y: 4}
+  - Type: 1
+    Position: {x: 10, y: 6}
+  - Type: 1
+    Position: {x: 9, y: 3}
+  - Type: 1
+    Position: {x: 7, y: 3}
+  - Type: 1
+    Position: {x: 7, y: 2}
+  - Type: 0
+    Position: {x: 0, y: 9}
+  - Type: 0
+    Position: {x: 5, y: 2}
+  - Type: 0
+    Position: {x: 10, y: 1}
+  - Type: 0
+    Position: {x: 1, y: 1}
+  - Type: 0
+    Position: {x: 8, y: 9}
+  - Type: 0
+    Position: {x: 8, y: 0}
+  - Type: 0
+    Position: {x: 8, y: 3}
+  - Type: 0
+    Position: {x: 5, y: 8}
+  - Type: 0
+    Position: {x: 4, y: 2}
+  - Type: 2
+    Position: {x: 3, y: 4}
+  - Type: 2
+    Position: {x: 3, y: 7}
+  - Type: 2
+    Position: {x: 1, y: 4}

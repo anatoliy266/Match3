@@ -60,7 +60,7 @@ namespace YG
 
                 onFocusWindowGame?.Invoke(false);
                 onHideWindowGame?.Invoke();
-                
+
                 void SetPause()
                 {
                     if (!nowAdsShow)

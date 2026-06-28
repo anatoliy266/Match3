@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 public class BackgroundMusicController : MonoBehaviour
@@ -36,8 +35,6 @@ public class BackgroundMusicController : MonoBehaviour
 
 
         bool isMusicOn = PlayerPrefs.GetInt("Music", 1) == 1;
-
-        Debug.Log($"контроллер музыки, значение {isMusicOn}");
         source.mute = !isMusicOn;
     }
 }

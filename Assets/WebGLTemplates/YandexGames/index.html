@@ -137,6 +137,36 @@
             }
         };
 
+        // function InstallBlurFocusBlocker() {
+        //     if (!('onblur' in document)) return;
+        //     if (window.blurFocusHandlersInstalled) return;
+
+        //     window.addEventListener('blur', function () {
+        //         let blockerButton = document.createElement('button');
+        //         blockerButton.style.position = 'fixed';
+        //         blockerButton.style.top = '0';
+        //         blockerButton.style.left = '0';
+        //         blockerButton.style.width = '100%';
+        //         blockerButton.style.height = '100%';
+        //         blockerButton.style.zIndex = '9999';
+        //         blockerButton.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+        //         blockerButton.style.border = 'none';
+        //         blockerButton.style.cursor = 'default';
+
+        //         document.body.appendChild(blockerButton);
+
+        //         function removeBlocker() {
+        //             if (blockerButton && blockerButton.parentNode) {
+        //                 blockerButton.parentNode.removeChild(blockerButton);
+        //             }
+        //             window.removeEventListener('focus', removeBlocker);
+        //         }
+
+        //         window.addEventListener('focus', removeBlocker);
+        //     });
+
+        //     window.blurFocusHandlersInstalled = true;
+        // }
         function InstallBlurFocusBlocker() {
             if (!('onblur' in document)) return;
             if (window.blurFocusHandlersInstalled) return;
@@ -159,10 +189,19 @@
                     if (blockerButton && blockerButton.parentNode) {
                         blockerButton.parentNode.removeChild(blockerButton);
                     }
+                    // Очищаем слушатели
                     window.removeEventListener('focus', removeBlocker);
+                    blockerButton.removeEventListener('pointerdown', removeBlocker);
+                    blockerButton.removeEventListener('click', removeBlocker);
                 }
 
                 window.addEventListener('focus', removeBlocker);
+                
+                // --- ИСПРАВЛЕНИЕ ---
+                // Удаляем блокатор, если игрок кликнул по нему
+                blockerButton.addEventListener('pointerdown', removeBlocker);
+                blockerButton.addEventListener('click', removeBlocker);
+                // -------------------
             });
 
             window.blurFocusHandlersInstalled = true;

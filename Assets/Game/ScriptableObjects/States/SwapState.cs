@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -16,7 +14,7 @@ public class SwapState : GameState
         var positionsCache = DictionaryPool<Guid, Vector2Int>.Get();
         positionsCache.Clear();
         machine.Field.ToPositionChache(positionsCache);
-        
+
         if (positionsCache.TryGetValue(sourceId, out var sourcePos) &&
         positionsCache.TryGetValue(destId, out var destPos))
         {
@@ -46,13 +44,14 @@ public class SwapState : GameState
                 machine.Blackboard.BonusesToActivate.Clear();
                 machine.Blackboard.BonusesToActivate.Add(sourceId);
                 machine.Blackboard.BonusesToActivate.Add(destId);
-                machine.Switch(StateEvent.SwapBonus); 
+                machine.Switch(StateEvent.SwapBonus);
             }
             else
             {
-                machine.Switch(StateEvent.Swap);       
+                machine.Switch(StateEvent.Swap);
             }
-        } else
+        }
+        else
         {
             DictionaryPool<Guid, Vector2Int>.Release(positionsCache);
 

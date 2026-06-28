@@ -1,9 +1,6 @@
-using System;
-using Unity.InferenceEngine;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static UnityEditor.PlayerSettings;
+
 
 public class DragManager : MonoBehaviour
 {
@@ -68,7 +65,6 @@ public class DragManager : MonoBehaviour
             if (hit.transform.TryGetComponent<Tile>(out var tile))
             {
                 if (tile.Type.KindType == TileKindType.Blocker) return;
-                //Debug.Log($"[DragManager] Source tile found: {tile.Id}");
                 Source = tile;
                 SourceStartPos = tile.transform.position;
                 Source.gameObject.layer = 2;

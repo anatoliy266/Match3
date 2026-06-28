@@ -68,12 +68,6 @@ public class FieldViewController : MonoBehaviour
                 View.CreateVisualTile(tile.Id, tile.Type, new Vector2Int(i, j), new Vector2Int(i, j));
             }
         }
-
-        View.ClearInvisibleMarkers();
-        foreach (var pos in Field.GetInvisiblePositions())
-        {
-            View.CreateInvisibleMarker(pos);
-        }
     }
 
 
@@ -446,7 +440,6 @@ public class FieldViewController : MonoBehaviour
         {
             seq.ChainCallback(() =>
             {
-                Debug.Log("колбек на дестрой тригернулся");
                 var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
                 GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.Destroy);
             });
@@ -476,7 +469,6 @@ public class FieldViewController : MonoBehaviour
         {
             seq.ChainCallback(() =>
             {
-                Debug.Log("колбек на дестрой тригернулся");
                 var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
                 GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyHorizontalBomb);
             });
@@ -490,7 +482,6 @@ public class FieldViewController : MonoBehaviour
         {
             seq.ChainCallback(() =>
             {
-                Debug.Log("колбек на дестрой тригернулся");
                 var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
                 GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyVerticalBomb);
             });
@@ -506,7 +497,6 @@ public class FieldViewController : MonoBehaviour
         {
             seq.ChainCallback(() =>
             {
-                Debug.Log("колбек на дестрой тригернулся");
                 var destroysfxname = Events.GetBusName(GameEvent.PlaySFX);
                 GameplayEventBus<GameSound>.Trigger(destroysfxname, GameSound.DestroyBomb);
             });

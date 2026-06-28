@@ -1,6 +1,6 @@
 ﻿using System;
-using YG.Insides;
 using UnityEngine;
+using YG.Insides;
 
 namespace YG
 {

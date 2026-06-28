@@ -41,7 +41,5 @@ public static class CreateSweepGlowMaterial
         EditorUtility.FocusProjectWindow();
         Selection.activeObject = mat;
         EditorGUIUtility.PingObject(mat);
-
-        Debug.Log("SweepGlow material created at " + path);
     }
 }

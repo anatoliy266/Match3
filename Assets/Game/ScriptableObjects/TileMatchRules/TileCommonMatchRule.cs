@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using static Tile;
 
 [CreateAssetMenu(fileName = "TileCommonMatchRule", menuName = "Rules/Common")]
 [Serializable]

@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 public class GameplaySFXManager : MonoBehaviour
@@ -15,7 +14,7 @@ public class GameplaySFXManager : MonoBehaviour
         GameplayEventBus<GameSound>.Register(name, OnSFX);
     }
 
-    
+
 
     private void OnDisable()
     {

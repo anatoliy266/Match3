@@ -175,6 +175,7 @@ MonoBehaviour:
   Events: {fileID: 11400000, guid: e1efccca5c52c0e439d76345e6af73c4, type: 2}
   Canvas: {fileID: 803574533}
   WinPanel: {fileID: 2455497643832284127, guid: ade7f6da155c13340be03fdddb93d211, type: 3}
+  LosePanel: {fileID: 1158905802514834386, guid: 6ac602a68964e084e859dfd02c5c0529, type: 3}
   Levels: {fileID: 11400000, guid: fc57105ad36e2d141b044c12b6af79b0, type: 2}
   settings: {fileID: 3584205673564054238, guid: d7cbeb442518eac48b8007a1c5949965, type: 3}
   confirm: {fileID: 6369982261835188178, guid: 4ad98ff54095d0b419b1d8d9f87cd3a4, type: 3}

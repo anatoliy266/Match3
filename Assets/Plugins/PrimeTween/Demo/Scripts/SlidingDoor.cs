@@ -2,26 +2,33 @@
 using PrimeTween;
 using UnityEngine;
 
-namespace PrimeTweenDemo {
-    public class SlidingDoor : Animatable {
-        [SerializeField] Demo demo;
-        [SerializeField] Transform animationAnchor;
-        [SerializeField] Vector3 openedPos, midPos, closedPos;
-        bool isClosed;
-        Sequence sequence;
+namespace PrimeTweenDemo
+{
+    public class SlidingDoor : Animatable
+    {
+        [SerializeField] private Demo demo;
+        [SerializeField] private Transform animationAnchor;
+        [SerializeField] private Vector3 openedPos, midPos, closedPos;
+        private bool isClosed;
+        private Sequence sequence;
 
-        public override void OnClick() {
-            if (!demo.animateAllSequence.isAlive) {
+        public override void OnClick()
+        {
+            if (!demo.animateAllSequence.isAlive)
+            {
                 Animate(!isClosed);
             }
         }
 
-        public override Sequence Animate(bool _isClosed) {
-            if (isClosed == _isClosed) {
+        public override Sequence Animate(bool _isClosed)
+        {
+            if (isClosed == _isClosed)
+            {
                 return Sequence.Create();
             }
             isClosed = _isClosed;
-            if (sequence.isAlive) {
+            if (sequence.isAlive)
+            {
                 sequence.Stop();
             }
             var tweenSettings = new TweenSettings(0.4f, Ease.OutBack, endDelay: 0.1f);

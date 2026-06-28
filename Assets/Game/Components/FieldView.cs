@@ -2,29 +2,22 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
-using static UnityEditor.PlayerSettings;
-using static UnityEngine.InputManagerEntry;
 
 public class FieldView : MonoBehaviour
 {
     [Req] public Tile Tile;
-    public SpriteRenderer InvisibleMarkerPrefab;
-
 
     private int _rows;
     private int _cols;
 
     private ObjectPool<Tile> _pool;
     private Dictionary<Guid, Tile> _visualTiles;
-    private List<SpriteRenderer> _invisibleMarkers;
-
 
     public void Initialize(LevelSettings data)
     {
         _rows = data.Rows;
         _cols = data.Columns;
         _visualTiles = new Dictionary<Guid, Tile>();
-        _invisibleMarkers = new List<SpriteRenderer>();
 
         _pool = new ObjectPool<Tile>(
             () => Instantiate(Tile, this.transform),
@@ -33,24 +26,6 @@ public class FieldView : MonoBehaviour
             (tile) => Destroy(tile.gameObject),
             true, 100, 1000
         );
-    }
-
-    public void CreateInvisibleMarker(Vector2Int pos)
-    {
-        if (InvisibleMarkerPrefab == null) return;
-
-        var marker = Instantiate(InvisibleMarkerPrefab, transform);
-        marker.transform.position = GetWorldPos(pos);
-        _invisibleMarkers.Add(marker);
-    }
-
-    public void ClearInvisibleMarkers()
-    {
-        for (int i = 0; i < _invisibleMarkers.Count; i++)
-        {
-            Destroy(_invisibleMarkers[i].gameObject);
-        }
-        _invisibleMarkers.Clear();
     }
 
 

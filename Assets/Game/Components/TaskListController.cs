@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
-using static UnityEngine.InputManagerEntry;
 
 public class TaskListController : MonoBehaviour
 {
@@ -42,6 +41,11 @@ public class TaskListController : MonoBehaviour
 
         foreach (var goal in _regularGoalsDict.Values) if (goal != null) Destroy(goal.gameObject);
         foreach (var goal in _bonusGoalsDict.Values) if (goal != null) Destroy(goal.gameObject);
+
+        for (int i = this.transform.childCount - 1; i >= 0; i--)
+        {
+            Destroy(this.transform.GetChild(i).gameObject);
+        }
 
         _regularGoalsDict.Clear();
         _bonusGoalsDict.Clear();

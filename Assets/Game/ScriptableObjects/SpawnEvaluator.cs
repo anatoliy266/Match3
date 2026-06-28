@@ -1,6 +1,4 @@
 using System;
-using System.Buffers;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -27,7 +25,6 @@ public class SpawnEvaluator
             for (var j = 0; j < c; j++)
             {
                 if (snapshot[i, j] is not null) continue;
-                if (machine.Field.IsInvisibleCell(new Vector2Int(i, j))) continue;
 
                 var group = ListPool<Guid>.Get();
 
@@ -44,7 +41,7 @@ public class SpawnEvaluator
                     var currentweight = group.Count > 2 ? 1.0f / (1.0f + difficultModified) : 1.0f;
                     totalWeight += currentweight;
 
-                    if (UnityEngine.Random.Range(0, totalWeight) <= currentweight) choosen = val; 
+                    if (UnityEngine.Random.Range(0, totalWeight) <= currentweight) choosen = val;
                 }
 
                 ListPool<Guid>.Release(group);

@@ -1,10 +1,7 @@
 using System;
 using System.Buffers;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Pool;
-using UnityEngine.Video;
 
 public struct MatchInfo
 {
@@ -76,7 +73,7 @@ public class MatchEvaluator
             Visited = visited,
             Rules = tileRules,
         };
-        snapshot[pos.x, pos.y] = new LogicalTile { Id = new Guid(), Type = kind};
+        snapshot[pos.x, pos.y] = new LogicalTile { Id = new Guid(), Type = kind };
         BFS.Run(pos, data, group);
         ArrayPool<bool>.Shared.Return(visited);
     }

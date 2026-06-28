@@ -15,7 +15,8 @@ MonoBehaviour:
   levelNumber: 10
   Rows: 7
   Columns: 7
-  Steps: 21
+  Steps: 4
+  Difficulty: 2
   RegiularTilesList: 000000000100000002000000
   BonusTilesList: 
   backgroundSprite: {fileID: 3287579595892397182, guid: d4c49d210df40664c9eec4ce297eac84, type: 3}
@@ -25,3 +26,16 @@ MonoBehaviour:
       RegularType: 1
       BonusType: 0
     count: 10
+  - Kind:
+      KindType: 2
+      BlockerType: 0
+    count: 2
+  Blockers:
+  - Type: 1
+    Position: {x: 1, y: 2}
+  - Type: 1
+    Position: {x: 3, y: 2}
+  - Type: 0
+    Position: {x: 0, y: 3}
+  - Type: 0
+    Position: {x: 4, y: 2}
