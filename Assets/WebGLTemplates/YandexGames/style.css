@@ -8,7 +8,7 @@ html {
 
 html, body {
     height: 100%;
-	touch-action: manipulation;
+	touch-action: none;
 }
 
 canvas {
@@ -29,7 +29,7 @@ body {
     width: 100%;
     height: 100%;
     background: {{{ BACKGROUND_COLOR }}};
-	touch-action: manipulation;
+	touch-action: none;
 }
 
 #loading-cover {
