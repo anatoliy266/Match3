@@ -57,11 +57,11 @@ public class MatchEvaluator
         ArrayPool<bool>.Shared.Return(visited);
     }
 
-    public void EvaluateTile(LogicalTile?[,] snapshot, Vector2Int pos, TileKind kind, MatchRules rules, List<Guid> group)
+    public void EvaluateTile(LogicalTile?[,] snapshot, Vector2Int pos, TileKind kind, MatchRules rules, List<Guid> group, bool[] visited)
     {
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
-        var visited = ArrayPool<bool>.Shared.Rent(r * c);
+        //var visited = ArrayPool<bool>.Shared.Rent(r * c);
         Array.Clear(visited, 0, r * c);
 
         var tileRules = rules.GetRules(kind);
@@ -75,7 +75,7 @@ public class MatchEvaluator
         };
         snapshot[pos.x, pos.y] = new LogicalTile { Id = new Guid(), Type = kind };
         BFS.Run(pos, data, group);
-        ArrayPool<bool>.Shared.Return(visited);
+        //ArrayPool<bool>.Shared.Return(visited);
     }
 
 
@@ -83,14 +83,15 @@ public class MatchEvaluator
     {
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
+        if (snapshot[position.x, position.y] is null) return;
+
+        var type = snapshot[position.x, position.y].Value.Type;
+        if (type.KindType == TileKindType.Regular) return;
+        if (type.KindType == TileKindType.Blocker) return;
 
         var visited = ArrayPool<bool>.Shared.Rent(r * c);
         Array.Clear(visited, 0, visited.Length);
 
-        if (snapshot[position.x, position.y] is null) return;
-        var type = snapshot[position.x, position.y].Value.Type;
-        if (type.KindType == TileKindType.Regular) return;
-        if (type.KindType == TileKindType.Blocker) return;
 
         var tileRules = rules.GetRules(type);
         var group = new List<Guid>();

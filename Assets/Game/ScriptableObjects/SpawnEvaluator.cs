@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -12,13 +13,22 @@ public struct SpawnInfo
 
 public class SpawnEvaluator
 {
+    private RegularType[] _regularTypes;
+    public SpawnEvaluator()
+    {
+        _regularTypes = (RegularType[])System.Enum.GetValues(typeof(RegularType));
+    }
+
     //выбор обычной фишки
     //надо както предиктивно считать какой тип выбрать чтобы не было бесконечных совпадений и доска "усложнялась" после каждой итерации
     public void Evaluate(FiniteStateMachine machine, LogicalTile?[,] snapshot, MatchRules rules, List<SpawnInfo> spawns, int difficultModified)
     {
         var (r, c) = (snapshot.GetLength(0), snapshot.GetLength(1));
 
-        var values = System.Enum.GetValues(typeof(RegularType));
+        //var values = System.Enum.GetValues(typeof(RegularType));
+
+        var group = ListPool<Guid>.Get();
+        var visited = ArrayPool<bool>.Shared.Rent(r * c);
 
         for (var i = 0; i < r; i++)
         {
@@ -26,25 +36,22 @@ public class SpawnEvaluator
             {
                 if (snapshot[i, j] is not null) continue;
 
-                var group = ListPool<Guid>.Get();
-
                 var totalWeight = 0.0f;
                 var choosen = 0;
 
-                for (var val = 0; val < values.Length; val++)
+                for (var val = 0; val < _regularTypes.Length; val++)
                 {
                     var type = (RegularType)val;
                     group.Clear();
+                    Array.Clear(visited, 0, visited.Length);
 
-                    machine.MatchEvaluator.EvaluateTile(snapshot, new Vector2Int(i, j), TileKind.Regular(type), rules, group);
+                    machine.MatchEvaluator.EvaluateTile(snapshot, new Vector2Int(i, j), TileKind.Regular(type), rules, group, visited);
 
                     var currentweight = group.Count > 2 ? 1.0f / (1.0f + difficultModified) : 1.0f;
                     totalWeight += currentweight;
 
                     if (UnityEngine.Random.Range(0, totalWeight) <= currentweight) choosen = val;
                 }
-
-                ListPool<Guid>.Release(group);
 
                 var finalType = (RegularType)choosen;
 
@@ -62,6 +69,8 @@ public class SpawnEvaluator
                 spawns.Add(spawn);
             }
         }
+        ListPool<Guid>.Release(group);
+        ArrayPool<bool>.Shared.Return(visited);
     }
 
 

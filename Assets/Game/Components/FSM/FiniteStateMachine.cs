@@ -44,7 +44,8 @@ public class FiniteStateMachine : MonoBehaviour
     {
         var nextState = States.GetTransition(_state, e);
 
-        Debug.Log($"переключается из {_state?.GetType().Name ?? "Null"} в {nextState?.GetType().Name ?? "Null"}");
+        //a10 ну собственно
+        //Debug.Log($"переключается из {_state?.GetType().Name ?? "Null"} в {nextState?.GetType().Name ?? "Null"}");
         if (nextState is not null)
         {
             _state = nextState;

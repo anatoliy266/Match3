@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -99,6 +100,10 @@ public class FillUpState : GameState
         machine.Blackboard.EnsureBlockerList();
         var blockersToRemove = machine.Blackboard.CurrentBlockersToRemove;
         var rows = snapshot.GetLength(0);
+
+        // А9 один хэшсет на весь метод
+        var emptyMatchedIds = HashSetPool<Guid>.Get();
+        emptyMatchedIds.Clear();
 
         for (var i = 0; i < bounds.x; i++)
         {

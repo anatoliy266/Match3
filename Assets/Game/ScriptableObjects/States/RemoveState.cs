@@ -57,6 +57,20 @@ public class RemoveState : GameState
         var blockersToRemove = machine.Blackboard.CurrentBlockersToRemove;
         blockersToRemove.Clear();
 
+        //A9 вынес из метода чтобы в цикле не вызывалось
+        //var matchedIds = new HashSet<Guid>();
+        var matchedIds = HashSetPool<Guid>.Get();
+        matchedIds.Clear();
+
+        for (var i = 0; i < matches.Count; i++)
+        {
+            var match = matches[i];
+            for (var j = 0; j < match.Positions.Count; j++)
+            {
+                matchedIds.Add(match.Positions[j]);
+            }
+        }
+
         for (var i = 0; i < bounds.x; i++)
         {
             for (var j = 0; j < bounds.y; j++)
@@ -69,12 +83,16 @@ public class RemoveState : GameState
                 var rule = BlockerDestroyRules.GetRule(tile.Value.Type.BlockerType);
                 if (rule == null) continue;
 
-                if (rule.ShouldDestroy(pos, snapshotBeforeClear, matches))
+
+
+                if (rule.ShouldDestroy(pos, snapshotBeforeClear, matchedIds))
                 {
                     blockersToRemove.Add(tile.Value);
                     machine.Field.ClearTileAt(pos);
                 }
             }
         }
+
+        HashSetPool<Guid>.Release(matchedIds);
     }
 }

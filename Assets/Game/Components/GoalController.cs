@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
 using TMPro;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.Pool;
 using UnityEngine.UI;
 
 public class GoalController : MonoBehaviour

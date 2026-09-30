@@ -6,7 +6,8 @@ public class WaitingState : GameState
     [Req] public Events Events;
     public override void Enter(FiniteStateMachine machine)
     {
-        Debug.Log("заходит вы вейтинг");
+        //а10
+        //Debug.Log("заходит вы вейтинг");
         _fsm = machine;
         var name = Events.GetBusName(GameEvent.AnimationEnd);
         GameplayEventBus<bool>.Register(name, OnAnimationEnd);
@@ -14,7 +15,8 @@ public class WaitingState : GameState
 
     private void OnAnimationEnd(bool obj)
     {
-        Debug.Log("дождался конца анимации");
+        //а10
+        //Debug.Log("дождался конца анимации");
         var name = Events.GetBusName(GameEvent.AnimationEnd);
         GameplayEventBus<bool>.Unregister(name, OnAnimationEnd);
 

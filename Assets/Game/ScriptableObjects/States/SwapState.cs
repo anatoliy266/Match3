@@ -19,8 +19,13 @@ public class SwapState : GameState
         positionsCache.TryGetValue(destId, out var destPos))
         {
 
-            var source = machine.Field.GetTileAt(sourceId);
-            var dest = machine.Field.GetTileAt(destId);
+            // a8 скип лишних проходов по полю, уже есть кеш 
+
+            //var source = machine.Field.GetTileAt(sourceId);
+            //var dest = machine.Field.GetTileAt(destId);
+
+            var source = machine.Field.GetTileAt(sourcePos);
+            var dest = machine.Field.GetTileAt(destPos);
 
             bool hasBonus = (source.HasValue && source.Value.Type.KindType == TileKindType.Bonus) ||
                         (dest.HasValue && dest.Value.Type.KindType == TileKindType.Bonus);

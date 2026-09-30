@@ -9,20 +9,10 @@ public class BlockerAdjacentMatchRule : BlockerDestroyRuleBase
         Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
     };
 
-    public override bool ShouldDestroy(Vector2Int pos, LogicalTile?[,] snapshot, List<MatchInfo> currentMatches)
+    public override bool ShouldDestroy(Vector2Int pos, LogicalTile?[,] snapshot, HashSet<Guid> matchedIds)
     {
-        if (currentMatches == null || currentMatches.Count == 0)
+        if (matchedIds == null || matchedIds.Count == 0)
             return false;
-
-        var matchedIds = new HashSet<Guid>();
-        for (int i = 0; i < currentMatches.Count; i++)
-        {
-            var match = currentMatches[i];
-            for (int j = 0; j < match.Positions.Count; j++)
-            {
-                matchedIds.Add(match.Positions[j]);
-            }
-        }
 
         for (int d = 0; d < Directions.Length; d++)
         {
