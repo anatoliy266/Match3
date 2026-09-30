@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using YG;
 
 public class MainMenuController : MonoBehaviour
@@ -12,28 +13,31 @@ public class MainMenuController : MonoBehaviour
     private SettingsMenuController _settingsMenu;
     private LoadingController _loadingScreen;
 
+    private void Start()
+    {
+        _levelsMenu = Instantiate(levelsMenu, mainMenuCanvas.transform);
+        _levelsMenu.Initialize();
+        _levelsMenu.gameObject.SetActive(false);
+
+        _settingsMenu = Instantiate(settingsMenu, mainMenuCanvas.transform);
+        _settingsMenu.gameObject.SetActive(false);
+    }
+
     public void OpenLevelsWindow()
     {
         if (_levelsMenu != null && _levelsMenu.gameObject.activeSelf) return;
-        if (_levelsMenu is null)
-        {
-            _levelsMenu = Instantiate(levelsMenu, mainMenuCanvas.transform);
-            _levelsMenu.Initialize();
-        }
 
         _levelsMenu.OnLevelSelected += HandleLevelSelected;
         _levelsMenu.OnCloseRequested += HandleCloseLevelsMenu;
 
         _levelsMenu.gameObject.SetActive(true);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(
+            _levelsMenu.GetComponent<RectTransform>()
+        );
     }
 
     public void OpenSettingsWindow()
     {
-        if (_settingsMenu is null)
-        {
-            _settingsMenu = Instantiate(settingsMenu, mainMenuCanvas.transform);
-            _settingsMenu.Initialize();
-        }
         _settingsMenu.gameObject.SetActive(true);
     }
 
