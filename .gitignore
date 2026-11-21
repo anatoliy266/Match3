@@ -110,4 +110,5 @@ InitTestScene*.unity*
 /[Bb]uild/
 /[Bb]uilds/
 /Build-desktop/
+/Assets/PluginYourGames
 *.zip
